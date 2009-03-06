@@ -1,0 +1,15 @@
+1. Install prerequisites
+
+./install-pre.sh
+
+2. Install irssi-psyc
+
+make all install
+
+3. Usage
+
+/network psyc add psyc
+/server psyc add -network psyc psyc://psyced.org/~nick pass
+/connect psyc
+
+4. Enjoy!
