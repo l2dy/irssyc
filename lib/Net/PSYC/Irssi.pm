@@ -397,16 +397,19 @@ sub msg {
       }
       last SWITCH;
     };
-    /^_notice_place_leave(_invalid)?/ && do {
+    /^_notice_place_leave(_invalid|_subscribe)?/ && do {
       $s->debug('!!!! leave',$source,$uni,$s->{uni});
-      my $invalid = $1;
+      my $invalid = $1 eq '_invalid';
+      my $subscribe = $1 eq '_subscribe';
       if ($source eq $s->{uni} || $uni eq $s->{uni} || $invalid) {
+        $vars->{_context} = $vars->{_source} if $subscribe;
         $obj = $s->get_context($vars, -1);
         $s->debug('!!!! leave: obj:',$obj);
         if ($invalid && !$obj) {
           $s->{status}->msg(@p);
         }
         last SWITCH unless $obj;
+        $obj->{noleave} = 1;
         $obj->msg(@p);
         $obj->destroy(@p);
         delete $s->{contexts}->{$obj->{uni}};

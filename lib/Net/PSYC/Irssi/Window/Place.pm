@@ -192,7 +192,7 @@ sub destroy {
 sub witem_removed {
   my ($s) = @_;
   $s->SUPER::witem_removed;
-  $s->irssi->command(undef, 'leave', $s->{uni});
+  $s->irssi->command(undef, 'leave', $s->{uni}) unless $s->{noleave};
 }
 
 1;
