@@ -56,6 +56,13 @@ sub nick_change {
   return 0;
 }
 
+sub find_uni_by_nick {
+  my ($s, $nick) = @_;
+  my $m = $s->{members};
+  grep {return $_ if $m->{$_}->{nick} eq $nick} keys %$m;
+  return '';
+}
+
 sub sync {
   my ($s) = @_;
   unless ($s->witem->{synced}) {

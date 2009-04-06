@@ -71,8 +71,9 @@ sub msg {
       $s->update_statusbars;
       last SWITCH;
     };
-    /^(_request_friendship_implied|_notice_friendship_established)/ && do {
-      my $nick = $vars->{_nick_target} || $name;
+    /^(_request_friendship_implied|(_echo)?_notice_friendship_established)/ && do {
+      my $nick = $vars->{_nick_target} || $vars->{_nick} || $name;
+      $uni = $s->name2uni($nick);
       if ($s->{members}->{$uni}) {
         $s->print_notice("Friendship request: $nick is already your friend");
         return 0;
@@ -84,8 +85,9 @@ sub msg {
     };
     /^(_echo_friendship_removed|_notice_friendship_removed)/ && do {
       my $nick = $vars->{_nick_target} || $name;
+      $uni = $s->find_uni_by_nick($nick);
       unless ($s->{members}->{$uni}) {
-        $s->print_notice("Friendship remove: $nick is not you friend");
+        $s->print_notice("Friendship remove: $nick ($uni) is not your friend");
         return 0;
       }
       $s->witem->nick_remove($s->{members}->{$uni});
@@ -136,7 +138,7 @@ sub witem_created {
 
 sub notice {
   my ($s, $uni, $name, $mc, $data, $vars, $nick) = @_;
-  $vars->{_nick} = $nick if $nick;
+  #$vars->{_nick} = $nick if $nick;
   $s->print_notice(psyctext($data, $vars));
 
   if (my $win = $s->server->window_item_find($uni)) {
