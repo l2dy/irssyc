@@ -236,7 +236,7 @@ sub get_context {
   my ($s, $vars, $auto, $witem) = @_;
   my $uni = $s->get_uni($vars, 1);
   my $obj = $s->{contexts}->{$uni};
-  $s->debug('>> get_context:', $uni, $obj);
+  $s->debug('>> get_context:', $uni, $obj, $auto);
   #$s->debug('>>> contexts:', join ', ', keys %{$s->{contexts}});
   return $obj if $obj;
   return if $auto && $auto < 0;
@@ -397,10 +397,15 @@ sub msg {
       }
       last SWITCH;
     };
-    /^_notice_place_leave/ && do {
+    /^_notice_place_leave(_invalid)?/ && do {
       $s->debug('!!!! leave',$source,$uni,$s->{uni});
-      if ($source eq $s->{uni} || $uni eq $s->{uni}) {
+      my $invalid = $1;
+      if ($source eq $s->{uni} || $uni eq $s->{uni} || $invalid) {
         $obj = $s->get_context($vars, -1);
+        $s->debug('!!!! leave: obj:',$obj);
+        if ($invalid && !$obj) {
+          $s->{status}->msg(@p);
+        }
         last SWITCH unless $obj;
         $obj->msg(@p);
         $obj->destroy(@p);
@@ -428,6 +433,10 @@ sub msg {
         $s->{friends}->msg(@p);
         last SWITCH;
       }
+    };
+    /^_error_necessary_membership/ && do {
+      $s->{status}->msg(@p);
+      last SWITCH;
     };
 
     $obj = $s->get_context($vars) unless $obj;
