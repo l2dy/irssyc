@@ -26,7 +26,7 @@ if ([ "$cont" == "y" ] || [ "$cont" == "yes" ] || [ "$cont" == "" ]); then
   patch -p0 -d irssi-0.8.12 <irssi-0.8.12-tg.patch
   #patch -p0 -d perlpsyc <perlPSYC-0.25-tg.patch
 fi
-echo -n 'install perlPSYC to $irssi/lib? [Y/n] '
+echo -n "install perlPSYC to $irssi/lib? [Y/n] "
 read cont
 if ([ "$cont" == "y" ] || [ "$cont" == "yes" ] || [ "$cont" == "" ]); then
   cd $base/perlpsyc/lib/perlxt/Net
