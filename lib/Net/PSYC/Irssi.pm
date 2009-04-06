@@ -557,9 +557,16 @@ sub action {
 }
 
 sub enter {
-  my ($s, $target) = @_;
+  my ($s, $target, $force) = @_;
   return 0 unless $target;
+
   $s->command(undef, 'enter', $target);
+
+  if ($force) {
+    my $uni = $target;
+    $uni = $s->{server_uni}.'@'.$target if $target !~ /@/;
+    $s->get_context($uni);
+  }
   return 1;
 }
 
