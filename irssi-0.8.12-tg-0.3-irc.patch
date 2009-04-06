@@ -1,0 +1,33 @@
+Index: src/fe-common/irc/fe-irc-messages.c
+===================================================================
+--- src/fe-common/irc/fe-irc-messages.c	(revision 4874)
++++ src/fe-common/irc/fe-irc-messages.c	(working copy)
+@@ -42,6 +42,7 @@
+ {
+ 	int i = 0;
+ 	const char *val, *chars;
++	if (!IS_IRC_SERVER(server)) return NULL;
+ 
+ 	/* Quick check */
+ 	if (server->prefix[(int)(unsigned char)*target] == 0)
+@@ -69,6 +70,7 @@
+ {
+ 	const char *oldtarget;
+ 	char *nickmode, *recoded;
++	if (!IS_IRC_SERVER(server)) return;
+ 
+ 	oldtarget = target;
+ 	target = skip_target(IRC_SERVER(server), target);
+Index: src/irc/core/irc-commands.c
+===================================================================
+--- src/irc/core/irc-commands.c	(revision 4874)
++++ src/irc/core/irc-commands.c	(working copy)
+@@ -547,8 +547,6 @@
+ 	char *reason;
+ 	void *free_arg;
+ 
+-        CMD_IRC_SERVER(server);
+-
+ 	if (!cmd_get_params(data, &free_arg, 1 | PARAM_FLAG_OPTIONS |
+ 			    PARAM_FLAG_GETREST, "away", &optlist, &reason)) return;
+ 

@@ -1,0 +1,52 @@
+--- /usr/lib/perl5/site_perl/5.8.8/Net/PSYC.pm	2006-09-11 19:35:10.000000000 +0200
++++ lib/perlxt/Net/PSYC.pm	2008-08-13 16:48:20.423590648 +0200
+@@ -411,7 +411,7 @@
+ 
+ #   get_connection ( target )
+ sub get_connection {
+-    my $target = shift;
++    my ($target, $fd) = @_;
+ 
+     my ($user, $host, $port, $prots, $object) = parse_uniform($target);
+ 
+@@ -452,7 +452,7 @@
+ 	return $R{$target} || $R{$host.':'.$port} || $R{$host};
+     }
+     require Net::PSYC::Circuit;
+-    $C{$host.':'.$port} = Net::PSYC::Circuit->connect($host, $port, \%O);
++    $C{$host.':'.$port} = Net::PSYC::Circuit->connect($host, $port, $fd);
+     return $C{$host.':'.$port};
+     
+     UDP:
+@@ -994,7 +994,7 @@
+ 	return $URLS{$arg} = 0 unless s/^\G\/\///;
+     }
+ 
+-    if (s/([\w\-+]+)\@//) {
++    if (s/([\w\-_+.%]+)\@//) {
+ 	$user = $1;
+     } elsif ($scheme eq 'mailto' || $scheme eq 'xmpp') {
+ 	# need a users..
+--- /usr/lib/perl5/site_perl/5.8.8/Net/PSYC/Circuit.pm	2006-09-11 16:37:08.000000000 +0200
++++ lib/perlxt/Net/PSYC/Circuit.pm	2008-08-13 17:53:48.502234758 +0200
+@@ -103,10 +103,16 @@
+     my $class = shift;
+     my $ip = shift;
+     my $port = shift || PSYC_PORT();
+-    my $socket = IO::Socket::INET->new(Proto     => 'tcp',
+-                                       PeerAddr  => $ip,
+-				       Blocking	=> BLOCKING() & 1,
+-                                       PeerPort  => $port );
++    my $fd = shift;
++    my $socket;
++    if ($fd) {
++        $socket = IO::Socket::INET->new_from_fd($fd, '+<');
++    } else {
++        $socket = IO::Socket::INET->new(Proto     => 'tcp',
++                                        PeerAddr  => $ip,
++                                        Blocking	=> BLOCKING() & 1,
++                                        PeerPort  => $port );
++    }
+     # we need some nonblocking error handling
+     if (!$socket) {
+ 	W1('TCP connect to %s:%d failed. (%s)', $ip, $port, $!);

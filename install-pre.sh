@@ -18,13 +18,13 @@ echo -n 'unpack sources? [Y/n] '
 read cont
 if ([ "$cont" == "y" ] || [ "$cont" == "yes" ] || [ "$cont" == "" ]); then
   tar zxvf irssi-0.8.12.tar.gz
-  unzip perlPSYC-0.25.zip
+  unzip perlPSYC-0.26.zip
 fi
 echo -n 'patch sources? [Y/n] '
 read cont
 if ([ "$cont" == "y" ] || [ "$cont" == "yes" ] || [ "$cont" == "" ]); then
   patch -p0 -d irssi-0.8.12 <irssi-0.8.12-tg.patch
-  patch -p0 -d perlpsyc <perlPSYC-0.25-tg.patch
+  #patch -p0 -d perlpsyc <perlPSYC-0.25-tg.patch
 fi
 echo -n 'install perlPSYC to $irssi/lib? [Y/n] '
 read cont

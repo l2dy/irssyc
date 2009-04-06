@@ -1,0 +1,76 @@
+Index: src/core/queries.c
+===================================================================
+--- src/core/queries.c	(revision 4874)
++++ src/core/queries.c	(working copy)
+@@ -45,7 +45,7 @@
+ 	query->get_target = query_get_target;
+ 	query->createtime = time(NULL);
+ 	query->last_unread_msg = time(NULL);
+-	query->visible_name = g_strdup(query->name);
++	if (query->visible_name == NULL) query->visible_name = g_strdup(query->name);
+ 
+ 	if (query->server_tag != NULL) {
+ 		query->server = server_find_tag(query->server_tag);
+Index: src/fe-common/core/chat-completion.c
+===================================================================
+--- src/fe-common/core/chat-completion.c	(revision 4874)
++++ src/fe-common/core/chat-completion.c	(working copy)
+@@ -654,9 +654,9 @@
+ 	channel = CHANNEL(window->active);
+ 	query = QUERY(window->active);
+ 	if (channel == NULL && query != NULL &&
+-	    g_strncasecmp(word, query->name, strlen(word)) == 0) {
++		g_strncasecmp(word, query->visible_name, strlen(word)) == 0) {
+ 		/* completion in query */
+-                *list = g_list_append(*list, g_strdup(query->name));
++		*list = g_list_append(*list, g_strdup(query->visible_name));
+ 	} else if (channel != NULL) {
+ 		/* nick completion .. we could also be completing a nick
+ 		   after /MSG from nicks in channel */
+Index: src/fe-common/core/fe-queries.c
+===================================================================
+--- src/fe-common/core/fe-queries.c	(revision 4874)
++++ src/fe-common/core/fe-queries.c	(working copy)
+@@ -127,9 +127,9 @@
+ 			       query->name, MSGLEVEL_NICKS, NULL);
+ 
+ 	/* don't print the nick change message if only the case was changed */
+-	if (g_strcasecmp(query->name, oldnick) != 0) {
++	if (g_strcasecmp(query->visible_name, oldnick) != 0) {
+ 		printformat_dest(&dest,  TXT_NICK_CHANGED, oldnick,
+-				 query->name, query->name,
++				 query->visible_name, query->visible_name,
+ 				 query->address == NULL ? "" : query->address);
+ 	}
+ 
+Index: src/fe-common/core/window-items.c
+===================================================================
+--- src/fe-common/core/window-items.c	(revision 4874)
++++ src/fe-common/core/window-items.c	(working copy)
+@@ -24,6 +24,7 @@
+ #include "signals.h"
+ #include "servers.h"
+ #include "channels.h"
++#include "queries.h"
+ #include "settings.h"
+ 
+ #include "levels.h"
+@@ -197,6 +198,7 @@
+                                      void *server, const char *name)
+ {
+ 	CHANNEL_REC *channel;
++	QUERY_REC *query;
+ 	GSList *tmp;
+ 
+ 	for (tmp = window->items; tmp != NULL; tmp = tmp->next) {
+@@ -213,6 +215,10 @@
+ 	if (channel != NULL && window_item_window(channel) == window)
+ 		return (WI_ITEM_REC *) channel;
+ 
++	query = query_find(server, name);
++	if (query != NULL && window_item_window(query) == window)
++		return (WI_ITEM_REC *) query;
++
+ 	return NULL;
+ }
+ 

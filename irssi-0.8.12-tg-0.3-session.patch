@@ -1,0 +1,67 @@
+Index: src/core/session.c
+===================================================================
+--- src/core/session.c	(revision 4874)
++++ src/core/session.c	(working copy)
+@@ -168,15 +168,21 @@
+ 	config_node_set_str(config, node, "ssl_cafile", server->connrec->ssl_cafile);
+ 	config_node_set_str(config, node, "ssl_capath", server->connrec->ssl_capath);
+ 
+-	handle = g_io_channel_unix_get_fd(net_sendbuffer_handle(server->handle));
+-	config_node_set_int(config, node, "handle", handle);
++	config_node_set_int(config, node, "no_connect", server->connrec->no_connect);
+ 
++	if (server->handle) {
++		handle = g_io_channel_unix_get_fd(net_sendbuffer_handle(server->handle));
++		config_node_set_int(config, node, "handle", handle);
++	}
++
+ 	signal_emit("session save server", 3, server, config, node);
+ 
+-	/* fake the server disconnection */
+-	g_io_channel_unref(net_sendbuffer_handle(server->handle));
+-	net_sendbuffer_destroy(server->handle, FALSE);
+-	server->handle = NULL;
++	if (server->handle) {
++		/* fake the server disconnection */
++		g_io_channel_unref(net_sendbuffer_handle(server->handle));
++		net_sendbuffer_destroy(server->handle, FALSE);
++		server->handle = NULL;
++	}
+ 
+ 	server->connection_lost = TRUE;
+         server->no_reconnect = TRUE;
+@@ -239,7 +245,7 @@
+ 	SERVER_CONNECT_REC *conn;
+ 	SERVER_REC *server;
+ 	const char *chat_type, *address, *chatnet, *password, *nick;
+-        int port, handle;
++	int port, handle, no_connect;
+ 
+         chat_type = config_node_get_str(node, "chat_type", NULL);
+ 	address = config_node_get_str(node, "address", NULL);
+@@ -248,13 +254,14 @@
+ 	password = config_node_get_str(node, "password", NULL);
+ 	nick = config_node_get_str(node, "nick", NULL);
+ 	handle = config_node_get_int(node, "handle", -1);
++	no_connect = config_node_get_int(node, "no_connect", 0);
+ 
+-	if (chat_type == NULL || address == NULL || nick == NULL || handle < 0)
++	if (chat_type == NULL || address == NULL || nick == NULL || (handle < 0 && !no_connect))
+ 		return;
+ 
+ 	proto = chat_protocol_find(chat_type);
+ 	if (proto == NULL || proto->not_initialized) {
+-		if (handle < 0) close(handle);
++		if (handle > 0) close(handle);
+ 		return;
+ 	}
+ 
+@@ -262,7 +269,7 @@
+ 				  chatnet, password, nick);
+ 	if (conn != NULL) {
+ 		conn->reconnection = TRUE;
+-		conn->connect_handle = g_io_channel_unix_new(handle);
++		if (handle > 0) conn->connect_handle = g_io_channel_unix_new(handle);
+ 
+ 		server = proto->server_init_connect(conn);
+ 		server->version = g_strdup(config_node_get_str(node, "version", NULL));		
