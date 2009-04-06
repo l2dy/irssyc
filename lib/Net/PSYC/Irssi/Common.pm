@@ -47,8 +47,8 @@ sub get_source {
   $uni = $vars->{_context} if $c;
   unless ($uni) {
     my $u = parse_uniform($vars->{_source});
-    $s->debug('>>>', $u->{host}, 'vs', $s->{server_host});
-    if (1 || same_host($u->{host}, $s->{server_host})) {
+    $s->debug('>>>', ref $u ? $u->{host} : '', 'vs', $s->{server_host});
+    if (1 || ref $u && same_host($u->{host}, $s->{server_host})) {
       $s->debug('>>>> ok');
       $uni = $vars->{_source_relay};
     }

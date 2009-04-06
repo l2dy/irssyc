@@ -71,11 +71,12 @@ sub msg {
       $s->update_statusbars;
       last SWITCH;
     };
-    /^(_request_friendship_implied|(_echo)?_notice_friendship_established)/ && do {
+    /^(?:_request_friendship_(implied)|(?:_echo)?_notice_friendship_established)/ && do {
+      my $implied = $1 && $1 eq 'implied';
       my $nick = $vars->{_nick_target} || $vars->{_nick} || $name;
       $uni = $s->name2uni($nick);
       if ($s->{members}->{$uni}) {
-        $s->print_notice("Friendship request: $nick is already your friend");
+        $s->print_notice("Friendship request: $nick is already your friend") unless $implied;
         return 0;
       }
       $s->{members}->{$uni} = $s->nick_insert({nick => $nick, host => $uni});
