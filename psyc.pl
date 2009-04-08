@@ -267,18 +267,17 @@ sub cmd_sendraw {
 }
 
 Irssi::command_bind('join','cmd_join');
-Irssi::command_set_options('join', '-force');
+Irssi::command_set_options('join', 'force');
 #Irssi::command_bind('join force','cmd_join');
 sub cmd_join {
   my ($data, $server, $witem) = @_;
   return if !$server || $server->{chat_type} ne 'PSYC' || (!$data && (!$witem || $witem->{type} ne 'CHANNEL'));
   my $t = $server->{tag}; return unless $psyc{$t};
-  debug("!! command join: $data, $server, $witem");
-  my $force = 0;
-  if ($data =~ /^ *-force *(.+) *$/) {
-    $data = $1; $force = 1;
+  my $force = 0; $force = 1 if $data =~ /-force +/;
+  $data =~ /(?:^| +)([^ ]+)$/;
+  for (split ',', $1) {
+    $psyc{$t}->enter($_ || $witem->{name}, $force);
   }
-  $psyc{$t}->enter($data || $witem->{name}, $force);
 }
 
 Irssi::command_bind('part','cmd_part');
