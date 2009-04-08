@@ -85,7 +85,7 @@ sub connect {
   $s->{server} ||= $server;
   $s->{server_uni} = $s->{uni} = $server->{address};
   $s->{server_uni} =~ s/~(.*)//;
-  $s->{nick} = $1;
+  $s->{nick} ||= $1;
 
   unless ($s->{uni} && $s->{server_uni} && $s->{nick}) {
     Irssi::print "$s->{uni}: invalid uniform";
@@ -281,6 +281,11 @@ sub msg {
   $s->debug('>> msg:', $s->server->{tag}, $mc, $source, $data);
   #$s->dumper($vars);
   return if $s->{disconnected};
+
+  #workaround for privmsg bug
+  if ($mc =~ /^_message_private/ && $vars->{_source} eq $vars->{_source_relay} && $vars->{_source} eq $s->{uni}) {
+    $vars->{_source_relay} =~ s/~.*/~$vars->{_nick}/;
+  }
 
   my $uni = $s->get_source($vars);
   my $name = $s->get_name($vars, $uni);

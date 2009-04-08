@@ -75,10 +75,8 @@ sub sync {
 sub destroy {
   my ($s) = @_;
   return unless $s->witem;
-  #my $win = $s->witem->window;
   $s->witem->update({joined => 0, left => 1});
   $s->witem->destroy;
-  #$win->destroy;
 }
 
 1;
