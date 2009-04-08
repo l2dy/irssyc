@@ -26,7 +26,7 @@ our %IRSSI = (
               url         => 'http://scripts.irssi.hu/',
              );
 
-our (%psyc,$timeout,$width,$height,$debug);
+our (%psyc,$timeout,$width,$height,$debug,$witem_move);
 
 Irssi::command_bind('save_psyc','save_session');
 sub save_session {
@@ -192,9 +192,17 @@ sub channel_created {
   $psyc{$t}->channel_created($channel, $auto);
 }
 
+Irssi::command_bind('window item move','cmd_window_item_move');
+sub cmd_window_item_move {
+  my ($data, $server, $witem) = @_;
+  debug("!! command window item move: $data, $server, $witem");
+  $witem_move = 1;
+}
+
 Irssi::signal_add_first('window item new', 'window_item_new');
 sub window_item_new {
   my ($window, $witem) = @_;
+  if ($witem_move) { $witem_move = 0; return; }
   my $t = $witem->{server}->{tag}; return unless $psyc{$t};
   debug("!! event window item new: ".$witem->{name});
   $psyc{$t}->witem_created($witem);
@@ -203,6 +211,7 @@ sub window_item_new {
 Irssi::signal_add_first('window item remove', 'window_item_remove');
 sub window_item_remove {
   my ($window, $witem) = @_;
+  if ($witem_move) { $witem_move++; return; }
   my $t = $witem->{server}->{tag}; return unless $psyc{$t};
   debug("!! event window item remove: ".$witem->{name});
   $psyc{$t}->witem_removed($witem);

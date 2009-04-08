@@ -589,7 +589,7 @@ sub leave {
 
   if (my $place = $s->{contexts}->{$target}) {
     $place->destroy;
-    #delete $s->{contexts}->{$uni};
+    #delete $s->{contexts}->{$target};
   } else {
     $s->command(undef, 'leave', $target);
   }

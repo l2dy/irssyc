@@ -181,14 +181,6 @@ sub print_msg_action_own {
   $s->print_format($level, "own_action$masq", $s->irssi->{nick}, $msg, $local);
 }
 
-sub destroy {
-  my ($s) = @_;
-  return unless $s->witem;
-  my $win = $s->witem->window;
-  $s->witem->destroy;
-  $win->destroy;
-}
-
 sub witem_removed {
   my ($s) = @_;
   $s->SUPER::witem_removed;
