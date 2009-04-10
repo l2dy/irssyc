@@ -242,10 +242,11 @@ sub get_context {
   return if $auto && $auto < 0;
 
   my $name = $s->get_name($vars, $uni);
-  $obj = $s->new_window($uni, $name, $auto, $witem);
-  $s->{contexts}->{$uni} = $obj;
-  $obj->init;
-  return $obj;
+  if ($obj = $s->new_window($uni, $name, $auto, $witem)) {
+    $s->{contexts}->{$uni} = $obj;
+    $obj->init;
+    return $obj;
+  }
 }
 
 sub verify_enter {

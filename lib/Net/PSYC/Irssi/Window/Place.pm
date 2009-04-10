@@ -41,7 +41,7 @@ sub msg {
   my $print = 0;
   $_ = $mc;
  SWITCH: {
-    /^_notice_place_topic$/ && do {
+    /^_notice_place_topic/ && do {
       my $topic = $vars->{_topic};
       $topic = '' if $mc =~ /^_notice_place_topic_removed$/;
       if ($s->witem) {
@@ -53,7 +53,7 @@ sub msg {
       }
       last SWITCH;
     };
-    /^_status_place_topic$/ && do {
+    /^_status_place_topic/ && do {
       last SWITCH unless exists $s->{members};
       if ($s->witem) {
         last SWITCH if $s->witem->{topic} eq $vars->{_topic};
