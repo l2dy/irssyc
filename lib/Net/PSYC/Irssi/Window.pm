@@ -183,8 +183,10 @@ sub print_msg_log {
   my $msg = "<$name> $data";
   if ($mc =~ /^_notice_action/) {
     $msg = '* '.psyctext($data, $vars);
-  } elsif ($vars->{_action}) {
+  } elsif (!$data && $vars->{_action}) {
     $msg = "* $name ".$vars->{_action};
+  } elsif ($vars->{_action}) {
+    $msg = "<$name ".$vars->{_action}."> $data";
   }
   $s->print_log("$time $msg");
 }
