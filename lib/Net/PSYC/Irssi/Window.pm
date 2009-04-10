@@ -136,15 +136,11 @@ sub print_msg {
   }
 
   $s->debug('>> print_msg:', $mc, $name, $data, $mc, $uni);
-  #$s->debug('>>> 1');
   if ($vars->{_time_log} || $vars->{_time_place}) {
-  #$s->debug('>>> 2');
     $s->print_msg_log(@_);
   } else {
-  #$s->debug('>>> 3');
     my $local = $vars->{_nick_local};
     if (!$data && $vars->{_action} || $mc =~ /^_notice_action/) {
-  #$s->debug('>>> 4');
       my $msg = $vars->{_action};
       unless ($msg) {
         $data =~ s/[\r\n].*//;
@@ -160,18 +156,13 @@ sub print_msg {
         $s->print_msg_action($msg, $name, $local);
       }
     } else {
-  #$s->debug('>>> 5');
       if ($uni eq $s->irssi->{uni}) {
-  #$s->debug('>>> 6');
         $s->print_msg_own($data, $local) if $mc =~ /^_notice_action/;
       } else {
-  #$s->debug('>>> 7');
         $s->print_msg_plain($data, $name, $local, $uni, $vars->{_action});
       }
     }
-  #$s->debug('>>> 8');
   }
-  #$s->debug('>>> 9');
   return 1;
 }
 
