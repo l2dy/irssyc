@@ -12,7 +12,7 @@ if !([ "$cont" == "y" ] || [ "$cont" == "yes" ] || [ "$cont" == "" ]); then exit
 echo -n 'download sources? [Y/n] '
 read cont
 if ([ "$cont" == "y" ] || [ "$cont" == "yes" ] || [ "$cont" == "" ]); then
-  wget -c http://irssi.org/files/irssi-0.8.12.tar.gz http://perl.psyc.eu/files/perlPSYC-0.25.zip
+  wget -c http://irssi.org/files/irssi-0.8.12.tar.gz http://perl.psyc.eu/files/perlPSYC-0.26.zip
 fi
 echo -n 'unpack sources? [Y/n] '
 read cont
