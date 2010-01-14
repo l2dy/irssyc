@@ -141,6 +141,7 @@ sub notice {
   my ($s, $uni, $name, $mc, $data, $vars, $nick) = @_;
   #$vars->{_nick} = $nick if $nick;
   $s->print_notice(psyctext($data, $vars));
+  return unless $data;
 
   if (my $win = $s->server->window_item_find($uni)) {
     $data =~ s/[\r\n].*//;

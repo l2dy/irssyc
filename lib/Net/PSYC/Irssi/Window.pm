@@ -66,7 +66,7 @@ sub msg {
   $s->print_notice($msg) if $print && $print2 && (!$tag || !$tag->{params}->{noprint});
   delete $s->irssi->{tags}->{$tag} if $tag && exists $s->irssi->{tags}->{$tag};
 
-  Irssi::signal_emit("psyc message $mc", $uni, $name, $data) if $mc;
+  Irssi::signal_emit('psyc message', $mc, $uni, $name, $data) if $mc;
 }
 
 sub print_format {
@@ -140,7 +140,7 @@ sub print_msg {
     $s->print_msg_log(@_);
   } else {
     my $local = $vars->{_nick_local};
-    if (!$data && $vars->{_action} || $mc =~ /^_notice_action/) {
+    if ($data eq '' && $vars->{_action} || $mc =~ /^_notice_action/) {
       my $msg = $vars->{_action};
       unless ($msg) {
         $data =~ s/[\r\n].*//;
@@ -236,6 +236,8 @@ sub server { shift->{irssi}->{server} }
 sub witem  { shift->{witem} }
 
 sub LOAD {
+  Irssi::signal_register({'psyc message' => [qw(string string string string)]});
+
   my $hi = Irssi::settings_get_str('hilight_color');
   Irssi::theme_register([
                          'own_msg' => '{ownmsgnick $2 {ownnick $0}}$1',

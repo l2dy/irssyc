@@ -68,7 +68,7 @@ sub sync {
   unless ($s->witem->{synced}) {
     $s->{witem} = $s->witem->update({joined => 1, synced => 1});
     Irssi::signal_emit("channel joined", $s->witem);
-    Irssi::signal_emit("channel synced", $s->witem);
+    Irssi::signal_emit("channel sync", $s->witem);
   }
 }
 

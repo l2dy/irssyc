@@ -104,4 +104,8 @@ sub print_msg_action_own {
   #Irssi::signal_emit('message psyc action', $witem, $action);
 }
 
+sub LOAD {
+  Irssi::signal_register({'psyc message private' => [qw(Irssi::Server string string string)]});
+}
+
 1;

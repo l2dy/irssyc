@@ -185,7 +185,7 @@ sub disconnect {
   $s->{nodisconnect} = $nodisconnect;
 
   $s->sendmsg($s->{uni}, '_request_do_presence', '', {_degree_availability => 1, _degree_automation => 0, _description_presence => $msg});
-  $s->sendmsg($s->{uni}, '_request_exit');
+  $s->sendmsg($s->{uni}, '_request_do_quit');
 
   return if Event::loop(1);
   $s->disconnected;
@@ -201,7 +201,7 @@ sub disconnected {
   Net::PSYC::shutdown($s->{conn});
   POSIX::close($s->{fd});
 
-  $s->server->disconnect unless $s->{nodisconnect};
+  $s->server->disconnect if $s->server->{connected} && !$s->{nodisconnect};
   Event::unloop(1);
 }
 
@@ -256,9 +256,10 @@ sub verify_enter {
 
   unless ($tag || Net::PSYC::get_connection($s->{uni}) eq $vars->{_INTERNAL_origin}) {
     $s->print("$uni is trying to join us into a room without a proper _tag");
-    return 0;
+    return 1;
   }
-=pod
+
+=begin comment
   my $u = parse_uniform($uni);
   if (ref $u && $u->{'object'} =~ /^\@/) {
     my $silent = (exists $vars->{_control}
@@ -274,6 +275,7 @@ sub verify_enter {
     return 1;
   }
   return 0;
+=end comment
 =cut
 }
 
@@ -326,7 +328,7 @@ sub msg {
     };
     /^_request_authentication/ && do {
       if ($vars->{_location} =~ m,^psyc://(.+):,) {
-        if (same_host($1, '127.0.0.1')) {
+        if (same_host($1, $s->{server_host})) {
           $s->sendmsg($uni, '_notice_authentication', "",
                                {_trust_result => 3, _location => $vars->{_location}, _nick => $vars->{_nick}});
         } else {
@@ -390,7 +392,7 @@ sub msg {
     /^_echo_place_enter/ && do {
       unless (exists $s->{contexts}->{$uni} || $tag || Net::PSYC::get_connection($s->{uni}) eq $vars->{_INTERNAL_origin}) {
         $s->print("$uni is trying to join us into a room without a proper _tag");
-        last SWITCH;
+        #last SWITCH;
       }
     };
     /^_echo_place_leave/ && do {

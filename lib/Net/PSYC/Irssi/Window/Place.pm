@@ -187,4 +187,8 @@ sub witem_removed {
   $s->irssi->command(undef, 'leave', $s->{uni}) unless $s->{noleave};
 }
 
+sub LOAD {
+  Irssi::signal_register({'psyc message public' => [qw(Irssi::Server string string string string)]});
+}
+
 1;
