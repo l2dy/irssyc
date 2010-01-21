@@ -383,7 +383,8 @@ sub msg {
     };
     /^_list_places_entered$/ && do {
       $obj = $s->get_context($vars->{_location_place}, 1);
-      #last SWITCH;
+      $s->{status}->msg(@p);
+      last SWITCH;
     };
     /^_echo_place_enter_automatic_subscription/ && do {
       $obj = $s->get_context($vars, 1);
