@@ -364,21 +364,21 @@ sub msg {
     /^_list_alias$/ && do {
       my $long = lc $s->name2uni($vars->{_long});
       my $short = $vars->{_short};
-      $s->{aliases}->{$long} = $short;
-      $s->{raliases}->{$short} = $long;
+      $s->{aliases}->{lc $long} = $short;
+      $s->{raliases}->{lc $short} = $long;
     };
     /^_echo_alias_added$/ && do {
       my $long = lc $s->name2uni($vars->{_address});
       my $short = $vars->{_alias};
-      $s->{aliases}->{$long} = $short;
-      $s->{raliases}->{$short} = $long;
+      $s->{aliases}->{lc $long} = $short;
+      $s->{raliases}->{lc $short} = $long;
       $s->nick_change($long, $short, $long);
     };
     /^_echo_alias_removed$/ && do {
       my $long = lc $s->name2uni($vars->{_address});
       my $short = $vars->{_alias};
-      delete $s->{aliases}->{$long};
-      delete $s->{raliases}->{$short};
+      delete $s->{aliases}->{lc $long};
+      delete $s->{raliases}->{lc $short};
       $s->nick_change($short, $long, $long);
     };
     /^_list_places_entered$/ && do {

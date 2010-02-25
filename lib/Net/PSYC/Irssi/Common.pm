@@ -72,7 +72,7 @@ sub get_uni {
 sub get_name {
   my ($s, $vars, $uni, $c) = @_;
   $uni ||= $s->get_uni($vars, $c);
-  return $s->{aliases}->{$uni} if exists $s->{aliases}->{$uni};
+  return $s->{aliases}->{lc $uni} if exists $s->{aliases}->{lc $uni};
   $s->debug('>> get_name:', $vars, $uni, $c);
   my $u = parse_uniform($uni);
   $s->debug('>>>> get_name:', $uni) unless $u;
@@ -95,7 +95,7 @@ sub name2uni {
   $s->debug('>> name2uni:', $name);
   return $name unless $name;
   return $name if $name eq $s->{settings}->{friends_channel};
-  return $s->{raliases}->{lc($name)} if exists $s->{raliases}->{lc($name)};
+  return $s->{raliases}->{lc $name} if exists $s->{raliases}->{lc $name};
   if ($name !~ /^[a-z]+:/) {
     $name = "~$name" if $name !~ /^[~@]/;
     $name = $s->{server_uni}.$name;
