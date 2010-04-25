@@ -10,7 +10,7 @@ sub channel_create {
   $s->debug('>> channel_create:', $uni, $name, $auto);
   return 0 if !$uni || $s->witem;
   $name ||= $uni;
-  $name = "\@$name" if $name !~ /@/ && $name ne $s->{settings}->{friends_channel};
+  $name = "\@$name" unless $s->is_place($name) || $name eq $s->{settings}->{friends_channel};
 
   my $channel = {name => $uni, visible_name => $name, no_modes => 1};
   $channel = new Irssi::Psyc::Channel($s->server, $channel, $auto||0);

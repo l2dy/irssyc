@@ -109,10 +109,33 @@ sub place2uni {
   return $name unless $name;
   return $name if $name eq $s->{settings}->{friends_channel};
   if ($name !~ /^[a-z]+:/) {
-    $name =~ s/^[@#]?/@/;
+    $name =~ s/^#/@/;
+    $name = '@'.$name unless $s->is_place($name);
     $name = $s->{server_uni}.$name;
   }
   return lc $name;
+}
+
+sub legal_chars {
+  return '\w_=+-';
+}
+
+sub legal_name {
+  my ($s, $name) = @_;
+  my $c = $s->legal_chars;
+  return 1 if $name =~ /^[$c]+$/i;
+}
+
+sub is_place {
+  my ($s, $name) = @_;
+  my $c = $s->legal_chars;
+  return 1 if $name =~ /^(\@|~[$c]+#)[$c]+$/i;
+}
+
+sub is_person {
+  my ($s, $name) = @_;
+  my $c = $s->legal_chars;
+  return 1 if $name =~ /^~[$c]+$/i;
 }
 
 sub print {

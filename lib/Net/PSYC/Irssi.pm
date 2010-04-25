@@ -461,10 +461,10 @@ sub new_window {
   $s->debug('** new window:', $uni, $name, $auto);
   if (my $u = parse_uniform($uni)) {
     my $obj;
-    if (($u->{scheme} eq 'psyc' && $u->{object} =~ /^~/) || ($u->{scheme} eq 'xmpp' && $u->{user})) {
-      $obj = new Net::PSYC::Irssi::Window::Person($s, $uni, $name, $auto, $witem);
-    } elsif ($u->{object} =~ /^@/) {
+    if ($s->is_place($u->{object})) {
       $obj = new Net::PSYC::Irssi::Window::Place($s, $uni, $name, $auto, $witem);
+    } elsif (($u->{scheme} eq 'psyc' && $s->is_person($u->{object})) || ($u->{scheme} eq 'xmpp' && $u->{user})) {
+      $obj = new Net::PSYC::Irssi::Window::Person($s, $uni, $name, $auto, $witem);
     } else {
       $obj = $s->{status};
     }
@@ -585,7 +585,7 @@ sub enter {
 
   if ($force) {
     my $uni = $target;
-    $uni = $s->{server_uni}.'@'.$target if $target !~ /@/;
+    $uni = '@'.$target unless $s->is_place($target);
     $s->get_context($uni);
   }
   return 1;
