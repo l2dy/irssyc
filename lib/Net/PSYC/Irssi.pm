@@ -446,7 +446,7 @@ sub msg {
         last SWITCH;
       }
     };
-    /^_error_necessary_membership/ && do {
+    /^(_error_necessary_membership|_failure_redirect)/ && do {
       $s->{status}->msg(@p);
       last SWITCH;
     };
