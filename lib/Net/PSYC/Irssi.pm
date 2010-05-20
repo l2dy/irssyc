@@ -180,14 +180,14 @@ sub connected {
 }
 
 sub disconnect {
-  my ($s, $msg, $nodisconnect) = @_;
+  my ($s, $msg) = @_;
   $s->debug('>> disconnect:', $s->server->{tag});
-  $s->{nodisconnect} = $nodisconnect;
+  #$s->{nodisconnect} = $nodisconnect;
 
   $s->sendmsg($s->{uni}, '_request_do_presence', '', {_degree_availability => 1, _degree_automation => 0, _description_presence => $msg});
   $s->sendmsg($s->{uni}, '_request_do_quit');
 
-  return if Event::loop(1);
+  #return if Event::loop(1);
   $s->disconnected;
 }
 
@@ -196,13 +196,14 @@ sub disconnected {
   $s->debug('>> disconnected:', $s->server->{tag});
   return if $s->{disconnected};
   $s->{disconnected} = 1;
+  Event::sweep;
   Net::PSYC::unregister_uniform();
   Net::PSYC::Event::remove();
   Net::PSYC::shutdown($s->{conn});
   POSIX::close($s->{fd});
 
   $s->server->disconnect if $s->server->{connected} && !$s->{nodisconnect};
-  Event::unloop(1);
+  #Event::unloop(1);
 }
 
 sub read_settings {
@@ -499,7 +500,7 @@ sub sendmsg {
   if (exists $vars->{_tag}) {
     delete $vars->{_tag} unless $vars->{_tag};
   } else {
-    $vars->{_tag} = unpack( "H*",pack("F", rand(10)));
+    $vars->{_tag} = unpack("H*",pack("F", rand(10)));
   }
   $s->{tags}->{$vars->{_tag}} = {target => $target, mc => $mc, data => $data, vars => $vars, MMPvars => $MMPvars, params => $params || {}} if $vars->{_tag};
 
