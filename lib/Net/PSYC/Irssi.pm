@@ -182,12 +182,12 @@ sub connected {
 sub disconnect {
   my ($s, $msg) = @_;
   $s->debug('>> disconnect:', $s->server->{tag});
-  #$s->{nodisconnect} = $nodisconnect;
+  $s->{disconnect} = 1;
 
   $s->sendmsg($s->{uni}, '_request_do_presence', '', {_degree_availability => 1, _degree_automation => 0, _description_presence => $msg});
   $s->sendmsg($s->{uni}, '_request_do_quit');
 
-  #return if Event::loop(1);
+  return if Event::loop(1);
   $s->disconnected;
 }
 
@@ -196,14 +196,14 @@ sub disconnected {
   $s->debug('>> disconnected:', $s->server->{tag});
   return if $s->{disconnected};
   $s->{disconnected} = 1;
-  Event::sweep;
+
   Net::PSYC::unregister_uniform();
   Net::PSYC::Event::remove();
   Net::PSYC::shutdown($s->{conn});
   POSIX::close($s->{fd});
 
-  $s->server->disconnect if $s->server->{connected} && !$s->{nodisconnect};
-  #Event::unloop(1);
+  $s->server->disconnect if $s->server->{connected};
+  Event::unloop(1) if $s->{disconnect};
 }
 
 sub read_settings {
