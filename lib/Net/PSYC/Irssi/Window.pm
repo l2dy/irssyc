@@ -140,7 +140,7 @@ sub print_msg {
     $s->print_msg_log(@_);
   } else {
     my $local = $vars->{_nick_local};
-    if ($data eq '' && $vars->{_action} || $mc =~ /^_notice_action/) {
+    if (!$data && $vars->{_action} || $mc =~ /^_notice_action/) {
       my $msg = $vars->{_action};
       unless ($msg) {
         $data =~ s/[\r\n].*//;

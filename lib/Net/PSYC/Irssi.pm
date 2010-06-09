@@ -187,8 +187,8 @@ sub disconnect {
   $s->sendmsg($s->{uni}, '_request_do_presence', '', {_degree_availability => 1, _degree_automation => 0, _description_presence => $msg});
   $s->sendmsg($s->{uni}, '_request_do_quit');
 
-  return if Event::loop(1);
-  $s->disconnected;
+  return if Event::loop(1); # returns 1 if it ends up in disconnected()
+  $s->disconnected;         # otherwise call disconected() here
 }
 
 sub disconnected {
@@ -203,7 +203,7 @@ sub disconnected {
   POSIX::close($s->{fd});
 
   $s->server->disconnect if $s->server->{connected};
-  Event::unloop(1) if $s->{disconnect};
+  Event::unloop(1) if $s->{disconnect}; # only call unloop() if we entered the loop in disconnect()
 }
 
 sub read_settings {
