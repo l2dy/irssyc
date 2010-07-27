@@ -1,0 +1,1026 @@
+Index: src/fe-common/core/fe-queries.c
+===================================================================
+--- src/fe-common/core/fe-queries.c	(revision 5102)
++++ src/fe-common/core/fe-queries.c	(working copy)
+@@ -127,9 +127,9 @@
+ 			       query->name, MSGLEVEL_NICKS, NULL);
+ 
+ 	/* don't print the nick change message if only the case was changed */
+-	if (g_strcasecmp(query->name, oldnick) != 0) {
++	if (g_strcasecmp(query->visible_name, oldnick) != 0) {
+ 		printformat_dest(&dest,  TXT_NICK_CHANGED, oldnick,
+-				 query->name, query->name,
++				 query->visible_name, query->visible_name,
+ 				 query->address == NULL ? "" : query->address);
+ 	}
+ 
+Index: src/fe-common/core/chat-completion.c
+===================================================================
+--- src/fe-common/core/chat-completion.c	(revision 5102)
++++ src/fe-common/core/chat-completion.c	(working copy)
+@@ -655,9 +655,9 @@
+ 	channel = CHANNEL(window->active);
+ 	query = QUERY(window->active);
+ 	if (channel == NULL && query != NULL &&
+-	    g_strncasecmp(word, query->name, strlen(word)) == 0) {
++		g_strncasecmp(word, query->visible_name, strlen(word)) == 0) {
+ 		/* completion in query */
+-                *list = g_list_append(*list, g_strdup(query->name));
++		*list = g_list_append(*list, g_strdup(query->visible_name));
+ 	} else if (channel != NULL) {
+ 		/* nick completion .. we could also be completing a nick
+ 		   after /MSG from nicks in channel */
+Index: src/fe-common/core/window-items.c
+===================================================================
+--- src/fe-common/core/window-items.c	(revision 5102)
++++ src/fe-common/core/window-items.c	(working copy)
+@@ -24,6 +24,7 @@
+ #include "signals.h"
+ #include "servers.h"
+ #include "channels.h"
++#include "queries.h"
+ #include "settings.h"
+ 
+ #include "levels.h"
+@@ -212,6 +213,7 @@
+                                      void *server, const char *name)
+ {
+ 	CHANNEL_REC *channel;
++	QUERY_REC *query;
+ 	GSList *tmp;
+ 
+ 	for (tmp = window->items; tmp != NULL; tmp = tmp->next) {
+@@ -228,6 +230,10 @@
+ 	if (channel != NULL && window_item_window(channel) == window)
+ 		return (WI_ITEM_REC *) channel;
+ 
++	query = query_find(server, name);
++	if (query != NULL && window_item_window(query) == window)
++		return (WI_ITEM_REC *) query;
++
+ 	return NULL;
+ }
+ 
+Index: src/fe-common/irc/fe-irc-messages.c
+===================================================================
+--- src/fe-common/irc/fe-irc-messages.c	(revision 5102)
++++ src/fe-common/irc/fe-irc-messages.c	(working copy)
+@@ -41,6 +41,7 @@
+ {
+ 	int i = 0;
+ 	const char *val, *chars;
++	if (!IS_IRC_SERVER(server)) return NULL;
+ 
+ 	/* Quick check */
+ 	if (server == NULL || server->prefix[(int)(unsigned char)*target] == 0)
+Index: src/perl/common/typemap
+===================================================================
+--- src/perl/common/typemap	(revision 5102)
++++ src/perl/common/typemap	(working copy)
+@@ -1,6 +1,8 @@
+ TYPEMAP
+ Irssi::Chatnet		T_IrssiObj
+ Irssi::Server		T_IrssiObj
++Irssi::ServerSetup		T_IrssiObj
++Irssi::ChannelSetup		T_IrssiObj
+ Irssi::Connect		T_IrssiObj
+ Irssi::Reconnect	T_PlainObj
+ Irssi::Channel		T_IrssiObj
+Index: src/perl/common/Core.xs
+===================================================================
+--- src/perl/common/Core.xs	(revision 5102)
++++ src/perl/common/Core.xs	(working copy)
+@@ -4,6 +4,7 @@
+ 
+ #include "pidwait.h"
+ #include "session.h"
++#include "recode.h"
+ 
+ #define DEFAULT_COMMAND_CATEGORY "Perl scripts' commands"
+ 
+@@ -686,6 +687,18 @@
+ OUTPUT:
+ 	RETVAL
+ 
++char *
++recode_in(server, str, target)
++	Irssi::Server server
++	char *str
++	char *target
++
++char *
++recode_out(server, str, target)
++	Irssi::Server server
++	char *str
++	char *target
++
+ #*******************************
+ MODULE = Irssi::Core	PACKAGE = Irssi::Server
+ #*******************************
+Index: src/perl/common/Query.xs
+===================================================================
+--- src/perl/common/Query.xs	(revision 5102)
++++ src/perl/common/Query.xs	(working copy)
+@@ -55,3 +55,29 @@
+ query_change_server(query, server)
+ 	Irssi::Query query
+ 	Irssi::Server server
++
++Irssi::Query
++query_new(class, server, hash, automatic)
++	char *class
++	Irssi::Server server
++	HV *hash
++	int automatic
++PREINIT:
++	QUERY_REC *query;
++CODE:
++	query = g_new0(QUERY_REC, 1);
++	RETVAL = perl_query_fill_object(query, hash);
++	query->chat_type = ((SERVER_REC *)server)->chat_type;
++	query->server_tag = g_strdup(((SERVER_REC *)server)->tag);
++	query_init(query, automatic);
++OUTPUT:
++	RETVAL
++
++Irssi::Query
++query_update(query, hash)
++	Irssi::Query query
++	HV *hash
++CODE:
++	RETVAL = perl_query_fill_object((QUERY_REC *)query, hash);
++OUTPUT:
++	RETVAL
+Index: src/perl/common/Server.xs
+===================================================================
+--- src/perl/common/Server.xs	(revision 5102)
++++ src/perl/common/Server.xs	(working copy)
+@@ -30,6 +30,15 @@
+ 		XPUSHs(sv_2mortal(iobject_bless((CHATNET_REC *) tmp->data)));
+ 	}
+ 
++void
++setupservers()
++PREINIT:
++	GSList *tmp;
++PPCODE:
++	for (tmp = setupservers; tmp != NULL; tmp = tmp->next) {
++		XPUSHs(sv_2mortal(iobject_bless((SERVER_SETUP_REC *) tmp->data)));
++	}
++
+ Irssi::Connect
+ server_create_conn(chat_type, dest, port, chatnet=NULL, password=NULL, nick=NULL)
+ 	int chat_type
+@@ -51,8 +60,14 @@
+ chatnet_find(name)
+ 	char *name
+ 
++Irssi::ServerSetup
++server_setup_find(address, port=0, chatnet=NULL)
++	char *address
++	int port
++	char *chatnet
++
+ #*******************************
+-MODULE = Irssi::Server	PACKAGE = Irssi::Server  PREFIX = server_
++MODULE = Irssi::Server	PACKAGE = Irssi::Server	PREFIX = server_
+ #*******************************
+ 
+ void
+@@ -102,3 +117,114 @@
+ CODE:
+ 	server->send_message(server, target, msg, target_type);
+ 
++Irssi::Server
++server_update(server, hash)
++	Irssi::Server server
++	HV *hash
++CODE:
++	RETVAL = perl_server_fill_object((SERVER_REC *)server, hash);
++OUTPUT:
++	RETVAL
++
++#*******************************
++MODULE = Irssi::Server	PACKAGE = Irssi::Connect	PREFIX = connect_
++#*******************************
++
++Irssi::Connect
++connect_new(class, hash)
++	char *class
++	HV *hash
++PREINIT:
++	SERVER_CONNECT_REC *connect;
++CODE:
++	connect = g_new0(SERVER_CONNECT_REC, 1);
++	connect->type = module_get_uniq_id("SERVER CONNECT", 0);
++	RETVAL = perl_connect_fill_object(connect, hash);
++OUTPUT:
++	RETVAL
++
++Irssi::Connect
++connect_update(connect, hash)
++	Irssi::Connect connect
++	HV *hash
++CODE:
++	RETVAL = perl_connect_fill_object((SERVER_CONNECT_REC *)connect, hash);
++OUTPUT:
++	RETVAL
++
++void
++connect_connect(connect)
++	Irssi::Connect connect
++CODE:
++	server_connect(connect);
++
++#*******************************
++MODULE = Irssi::Server	PACKAGE = Irssi::Chatnet	PREFIX = chatnet_
++#*******************************
++
++Irssi::Chatnet
++chatnet_new(class, hash)
++	char *class
++	HV *hash
++PREINIT:
++	CHATNET_REC *chatnet;
++CODE:
++	chatnet = g_new0(CHATNET_REC, 1);
++	chatnet->type = module_get_uniq_id("CHATNET", 0);
++	RETVAL = perl_chatnet_fill_object(chatnet, hash);
++	chatnet_create(chatnet);
++OUTPUT:
++	RETVAL
++
++Irssi::Chatnet
++chatnet_update(chatnet, hash)
++	Irssi::Chatnet chatnet
++	HV *hash
++CODE:
++	RETVAL = perl_chatnet_fill_object((CHATNET_REC *)chatnet, hash);
++OUTPUT:
++	RETVAL
++
++void
++chatnet_remove(chatnet)
++	Irssi::Chatnet chatnet
++
++#*******************************
++MODULE = Irssi::Server	PACKAGE = Irssi::ServerSetup	PREFIX = server_setup_
++#*******************************
++
++Irssi::ServerSetup
++server_setup_new(class, hash)
++	char *class
++	HV *hash
++PREINIT:
++	SERVER_SETUP_REC *setup;
++CODE:
++	setup = g_new0(SERVER_SETUP_REC, 1);
++	setup->type = module_get_uniq_id("SERVER SETUP", 0);
++	RETVAL = perl_server_setup_fill_object(setup, hash);
++	server_setup_add(setup);
++OUTPUT:
++	RETVAL
++
++Irssi::ServerSetup
++server_setup_update(setup, hash)
++	Irssi::ServerSetup setup
++	HV *hash
++CODE:
++	RETVAL = perl_server_setup_fill_object((SERVER_SETUP_REC *)setup, hash);
++OUTPUT:
++	RETVAL
++
++void
++server_setup_remove(setup)
++	Irssi::ServerSetup setup
++
++void
++server_setup_list()
++PREINIT:
++	GSList *tmp;
++PPCODE:
++	for (tmp = setupservers; tmp != NULL; tmp = tmp->next) {
++		XPUSHs(sv_2mortal(iobject_bless((SERVER_SETUP_REC *) tmp->data)));
++	}
+Index: src/perl/common/Channel.xs
+===================================================================
+--- src/perl/common/Channel.xs	(revision 5102)
++++ src/perl/common/Channel.xs	(working copy)
+@@ -20,6 +20,15 @@
+ OUTPUT:
+ 	RETVAL
+ 
++void
++setupchannels()
++PREINIT:
++	GSList *tmp;
++PPCODE:
++	for (tmp = setupchannels; tmp != NULL; tmp = tmp->next) {
++		XPUSHs(sv_2mortal(iobject_bless((CHANNEL_SETUP_REC *) tmp->data)));
++	}
++
+ #*******************************
+ MODULE = Irssi::Channel  PACKAGE = Irssi::Server
+ #*******************************
+@@ -114,3 +123,68 @@
+ 		XPUSHs(sv_2mortal(iobject_bless((NICK_REC *) tmp->data)));
+ 	}
+ 	g_slist_free(list);
++
++Irssi::Channel
++channel_new(class, server, hash, automatic)
++	char *class
++	Irssi::Server server
++	HV *hash
++	int automatic
++PREINIT:
++	CHANNEL_REC *channel;
++CODE:
++	channel = g_new0(CHANNEL_REC, 1);
++	RETVAL = perl_channel_fill_object(channel, hash);
++	channel_init(channel, (SERVER_REC *)server, channel->name, channel->visible_name, automatic);
++OUTPUT:
++	RETVAL
++
++Irssi::Channel
++channel_update(channel, hash)
++	Irssi::Channel channel
++	HV *hash
++CODE:
++	RETVAL = perl_channel_fill_object((CHANNEL_REC *)channel, hash);
++OUTPUT:
++	RETVAL
++
++#*******************************
++MODULE = Irssi::Channel	 PACKAGE = Irssi::Nick	PREFIX = nick_
++#*******************************
++
++Irssi::Nick
++nick_new(class, server, hash)
++	char *class
++	Irssi::Server server
++	HV *hash
++PREINIT:
++	NICK_REC *nick;
++CODE:
++	nick = g_new0(NICK_REC, 1);
++	nick->type = module_get_uniq_id("NICK", 0);
++	nick->chat_type = ((SERVER_REC *)server)->chat_type;
++	RETVAL = perl_nick_fill_object((NICK_REC *)nick, hash);
++OUTPUT:
++	RETVAL
++
++Irssi::Nick
++nick_update(nick, hash)
++	Irssi::Nick nick
++	HV *hash
++CODE:
++	RETVAL = perl_nick_fill_object((NICK_REC *)nick, hash);
++OUTPUT:
++	RETVAL
++
++#*******************************
++MODULE = Irssi::Channel	PACKAGE = Irssi::ChannelSetup	PREFIX=channel_setup_
++#*******************************
++
++void
++channel_setup_list()
++PREINIT:
++	GSList *tmp;
++PPCODE:
++	for (tmp = setupchannels; tmp != NULL; tmp = tmp->next) {
++		XPUSHs(sv_2mortal(iobject_bless((CHANNEL_SETUP_REC *) tmp->data)));
++	}
+Index: src/perl/common/module.h
+===================================================================
+--- src/perl/common/module.h	(revision 5102)
++++ src/perl/common/module.h	(working copy)
+@@ -19,6 +19,7 @@
+ #include "servers.h"
+ #include "servers-reconnect.h"
+ #include "servers-setup.h"
++#include "channels-setup.h"
+ #include "channels.h"
+ #include "queries.h"
+ #include "nicklist.h"
+@@ -39,6 +40,8 @@
+ typedef CHATNET_REC *Irssi__Chatnet;
+ typedef SERVER_REC *Irssi__Server;
+ typedef SERVER_CONNECT_REC *Irssi__Connect;
++typedef SERVER_SETUP_REC *Irssi__ServerSetup;
++typedef CHANNEL_SETUP_REC *Irssi__ChannelSetup;
+ typedef RECONNECT_REC *Irssi__Reconnect;
+ typedef CHANNEL_REC *Irssi__Channel;
+ typedef QUERY_REC *Irssi__Query;
+Index: src/perl/perl-common.c
+===================================================================
+--- src/perl/perl-common.c	(revision 5102)
++++ src/perl/perl-common.c	(working copy)
+@@ -25,6 +25,7 @@
+ #include "core.h"
+ #include "misc.h"
+ #include "settings.h"
++#include "network.h"
+ 
+ #include "commands.h"
+ #include "ignore.h"
+@@ -36,6 +37,8 @@
+ #include "chat-protocols.h"
+ #include "chatnets.h"
+ #include "servers.h"
++#include "servers-setup.h"
++#include "channels-setup.h"
+ #include "channels.h"
+ #include "queries.h"
+ #include "nicklist.h"
+@@ -276,6 +279,81 @@
+ 	hv_store(hv, "autosendcmd", 11, new_pv(chatnet->autosendcmd), 0);
+ }
+ 
++void perl_server_setup_fill_hash(HV *hv, SERVER_SETUP_REC *setup)
++{
++	char *type, *chat_type, ipaddr[MAX_IP_LEN];
++
++        g_return_if_fail(hv != NULL);
++        g_return_if_fail(setup != NULL);
++
++	type = "SERVER SETUP";
++	chat_type = (char *) chat_protocol_find_id(setup->chat_type)->name;
++
++	hv_store(hv, "type", 4, new_pv(type), 0);
++	hv_store(hv, "chat_type", 9, new_pv(chat_type), 0);
++
++	hv_store(hv, "chatnet", 7, new_pv(setup->chatnet), 0);
++	hv_store(hv, "family", 6, newSViv(setup->family), 0);
++
++	hv_store(hv, "address", 7, new_pv(setup->address), 0);
++	hv_store(hv, "port", 4, newSViv(setup->port), 0);
++	hv_store(hv, "password", 8, new_pv(setup->password), 0);
++
++	hv_store(hv, "ssl_cert", 8, new_pv(setup->ssl_cert), 0);
++	hv_store(hv, "ssl_pkey", 8, new_pv(setup->ssl_pkey), 0);
++	hv_store(hv, "ssl_cafile", 10, new_pv(setup->ssl_cafile), 0);
++	hv_store(hv, "ssl_capath", 10, new_pv(setup->ssl_capath), 0);
++
++	hv_store(hv, "own_host", 8, new_pv(setup->own_host), 0);
++
++	if (setup->own_ip4 == NULL) {
++		ipaddr[0] = '\0';
++	} else {
++		net_ip2host(setup->own_ip4, ipaddr);
++	}
++	hv_store(hv, "own_ip4", 7, new_pv(ipaddr), 0);
++
++	if (setup->own_ip6 == NULL) {
++		ipaddr[0] = '\0';
++	} else {
++		net_ip2host(setup->own_ip6, ipaddr);
++	}
++	hv_store(hv, "own_ip6", 7, new_pv(ipaddr), 0);
++
++	hv_store(hv, "last_connect", 12, newSViv(setup->last_connect), 0);
++
++	hv_store(hv, "autoconnect", 11, newSViv(setup->autoconnect), 0);
++	hv_store(hv, "no_proxy", 8, newSViv(setup->no_proxy), 0);
++	hv_store(hv, "last_failed", 11, newSViv(setup->last_failed), 0);
++	hv_store(hv, "banned", 6, newSViv(setup->banned), 0);
++	hv_store(hv, "dns_error", 9, newSViv(setup->dns_error), 0);
++	hv_store(hv, "use_ssl", 7, newSViv(setup->use_ssl), 0);
++	hv_store(hv, "ssl_verify", 10, newSViv(setup->ssl_verify), 0);
++}
++
++void perl_channel_setup_fill_hash(HV *hv, CHANNEL_SETUP_REC *setup)
++{
++	char *type, *chat_type;
++
++        g_return_if_fail(hv != NULL);
++        g_return_if_fail(setup != NULL);
++
++	type = "CHANNEL SETUP";
++	chat_type = (char *) chat_protocol_find_id(setup->chat_type)->name;
++
++	hv_store(hv, "type", 4, new_pv(type), 0);
++	hv_store(hv, "chat_type", 9, new_pv(chat_type), 0);
++
++	hv_store(hv, "name", 4, new_pv(setup->name), 0);
++	hv_store(hv, "chatnet", 7, new_pv(setup->chatnet), 0);
++	hv_store(hv, "password", 8, new_pv(setup->password), 0);
++
++	hv_store(hv, "botmasks", 8, new_pv(setup->botmasks), 0);
++	hv_store(hv, "autosendcmd", 11, new_pv(setup->autosendcmd), 0);
++
++	hv_store(hv, "autojoin", 8, newSViv(setup->autojoin), 0);
++}
++
+ void perl_connect_fill_hash(HV *hv, SERVER_CONNECT_REC *conn)
+ {
+ 	char *type, *chat_type;
+@@ -523,6 +601,355 @@
+ 	hv_store(hv, "data", 4, new_pv(script->data), 0);
+ }
+ 
++CHATNET_REC * perl_chatnet_fill_object(CHATNET_REC *chatnet, HV *hv)
++{
++	SV **sv;
++	CHAT_PROTOCOL_REC * chat_protocol;
++
++	g_return_val_if_fail(hv != NULL, NULL);
++	g_return_val_if_fail(chatnet != NULL, NULL);
++
++	sv = hv_fetch(hv, "chat_type", 9, 0);
++	if (sv != NULL) {
++		chat_protocol = chat_protocol_find((char *)SvPV_nolen(*sv));
++		if (chat_protocol != NULL) chatnet->chat_type = chat_protocol->id;
++	}
++
++	sv = hv_fetch(hv, "name", 4, 0);
++	if (sv != NULL) chatnet->name = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "nick", 4, 0);
++	if (sv != NULL) chatnet->nick = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "username", 8, 0);
++	if (sv != NULL) chatnet->username = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "realname", 8, 0);
++	if (sv != NULL) chatnet->realname = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "own_host", 8, 0);
++	if (sv != NULL) chatnet->own_host = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "autosendcmd", 11, 0);
++	if (sv != NULL) chatnet->autosendcmd = g_strdup((char *)SvPV_nolen(*sv));
++
++	return chatnet;
++}
++
++SERVER_SETUP_REC * perl_server_setup_fill_object(SERVER_SETUP_REC *setup, HV *hv)
++{
++	SV **sv;
++	CHATNET_REC * chatnet;
++
++	g_return_val_if_fail(hv != NULL, NULL);
++	g_return_val_if_fail(setup != NULL, NULL);
++
++	sv = hv_fetch(hv, "chatnet", 7, 0);
++	if (sv != NULL) {
++		chatnet = chatnet_find((char *)SvPV_nolen(*sv));
++		if (chatnet != NULL) setup->chat_type = chatnet->chat_type;
++		setup->chatnet = g_strdup((char *)SvPV_nolen(*sv));
++	}
++	
++	sv = hv_fetch(hv, "family", 6, 0);
++	if (sv != NULL) setup->family = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "address", 7, 0);
++	if (sv != NULL) setup->address = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "port", 4, 0);
++	if (sv != NULL) setup->port = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "password", 8, 0);
++	if (sv != NULL) setup->password = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "ssl_cert", 8, 0);
++	if (sv != NULL) setup->ssl_cert = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "ssl_pkey", 8, 0);
++	if (sv != NULL) setup->ssl_pkey = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "ssl_cafile", 10, 0);
++	if (sv != NULL) setup->ssl_cafile = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "ssl_capath", 10, 0);
++	if (sv != NULL) setup->ssl_capath = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "own_host", 8, 0);
++	if (sv != NULL) setup->own_host = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "last_connect", 12, 0);
++	if (sv != NULL) setup->last_connect = (time_t)SvIV(*sv);
++
++	sv = hv_fetch(hv, "autoconnect", 11, 0);
++	if (sv != NULL) setup->autoconnect = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "no_proxy", 8, 0);
++	if (sv != NULL) setup->no_proxy = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "last_failed", 11, 0);
++	if (sv != NULL) setup->last_failed = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "banned", 6, 0);
++	if (sv != NULL) setup->banned = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "dns_error", 9, 0);
++	if (sv != NULL) setup->dns_error = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "use_ssl", 7, 0);
++	if (sv != NULL) setup->use_ssl = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "ssl_verify", 10, 0);
++	if (sv != NULL) setup->ssl_verify = (int)SvIV(*sv);
++
++	return setup;
++}
++
++SERVER_CONNECT_REC * perl_connect_fill_object(SERVER_CONNECT_REC *conn, HV *hv)
++{
++	SV **sv;
++	CHAT_PROTOCOL_REC * chat_protocol;
++
++	g_return_val_if_fail(hv != NULL, NULL);
++	g_return_val_if_fail(conn != NULL, NULL);
++
++	sv = hv_fetch(hv, "chat_type", 9, 0);
++	if (sv != NULL) {
++		chat_protocol = chat_protocol_find((char *)SvPV_nolen(*sv));
++		if (chat_protocol != NULL) conn->chat_type = chat_protocol->id;
++	}
++
++	sv = hv_fetch(hv, "tag", 3, 0);
++	if (sv != NULL) conn->tag = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "address", 7, 0);
++	if (sv != NULL) conn->address = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "port", 4, 0);
++	if (sv != NULL) conn->port = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "chatnet", 7, 0);
++	if (sv != NULL) conn->chatnet = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "password", 8, 0);
++	if (sv != NULL) conn->password = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "wanted_nick", 11, 0);
++	if (sv != NULL) conn->nick = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "username", 8, 0);
++	if (sv != NULL) conn->username = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "realname", 8, 0);
++	if (sv != NULL) conn->realname = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "reconnection", 12, 0);
++	if (sv != NULL) conn->reconnection = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "no_autojoin_channels", 20, 0);
++	if (sv != NULL) conn->no_autojoin_channels = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "unix_socket", 11, 0);
++	if (sv != NULL) conn->unix_socket = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "use_ssl", 7, 0);
++	if (sv != NULL) conn->use_ssl = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "no_connect", 10, 0);
++	if (sv != NULL) conn->no_connect = (int)SvIV(*sv);
++
++	return conn;
++}
++
++SERVER_REC * perl_server_fill_object(SERVER_REC *server, HV *hv)
++{
++	SV **sv;
++
++	g_return_val_if_fail(server != NULL, NULL);
++	g_return_val_if_fail(hv != NULL, NULL);
++
++	sv = hv_fetch(hv, "connect_time", 12, 0);
++	if (sv != NULL) server->connect_time = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "real_connect_time", 17, 0);
++	if (sv != NULL) server->real_connect_time = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "tag", 3, 0);
++	if (sv != NULL) server->tag = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "nick", 4, 0);
++	if (sv != NULL) server->nick = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "connected", 9, 0);
++	if (sv != NULL) server->connected = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "connection_lost", 15, 0);
++	if (sv != NULL) server->connection_lost = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "version", 7, 0);
++	if (sv != NULL) server->version = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "away_reason", 11, 0);
++	if (sv != NULL) server->away_reason = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "last_invite", 11, 0);
++	if (sv != NULL) server->last_invite = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "server_operator", 15, 0);
++	if (sv != NULL) server->server_operator = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "usermode_away", 13, 0);
++	if (sv != NULL) server->usermode_away = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "banned", 6, 0);
++	if (sv != NULL) server->banned = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "lag", 3, 0);
++	if (sv != NULL) server->lag = (int)SvIV(*sv);
++
++	return server;
++}
++
++WI_ITEM_REC * perl_window_item_fill_object(WI_ITEM_REC *item, HV *hv)
++{
++	SV **sv;
++
++	g_return_val_if_fail(item != NULL, NULL);
++	g_return_val_if_fail(hv != NULL, NULL);
++
++	sv = hv_fetch(hv, "visible_name", 12, 0);
++	if (sv != NULL) item->visible_name = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "createtime", 10, 0);
++	item->createtime = sv != NULL ? (int)SvIV(*sv) : time(NULL);
++
++	sv = hv_fetch(hv, "data_level", 10, 0);
++	if (sv != NULL) item->data_level = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "hilight_color", 13, 0);
++	if (sv != NULL) item->hilight_color = g_strdup((char *)SvPV_nolen(*sv));
++
++	return item;
++}
++
++CHANNEL_REC * perl_channel_fill_object(CHANNEL_REC *channel, HV *hv)
++{
++	SV **sv;
++
++	g_return_val_if_fail(channel != NULL, NULL);
++	g_return_val_if_fail(hv != NULL, NULL);
++
++	perl_window_item_fill_object((WI_ITEM_REC *)channel, hv);
++
++	sv = hv_fetch(hv, "name", 4, 0);
++	if (sv != NULL) channel->name = g_strdup((char *)SvPV_nolen(*sv));
++	if (channel->visible_name == NULL) channel->visible_name = channel->name;
++
++	sv = hv_fetch(hv, "topic", 5, 0);
++	if (sv != NULL) channel->topic = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "topic_by", 8, 0);
++	if (sv != NULL) channel->topic_by = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "topic_time", 10, 0);
++	if (sv != NULL) channel->topic_time = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "no_modes", 8, 0);
++	if (sv != NULL) channel->no_modes = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "mode", 4, 0);
++	channel->mode = sv != NULL ? g_strdup((char *)SvPV_nolen(*sv)) : g_strdup("");
++
++	sv = hv_fetch(hv, "limit", 5, 0);
++	if (sv != NULL) channel->limit = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "key", 3, 0);
++	if (sv != NULL) channel->key = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "chanop", 6, 0);
++	if (sv != NULL) channel->chanop = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "names_got", 9, 0);
++	if (sv != NULL) channel->names_got = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "wholist", 7, 0);
++	if (sv != NULL) channel->wholist = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "synced", 6, 0);
++	if (sv != NULL) channel->synced = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "joined", 6, 0);
++	if (sv != NULL) channel->joined = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "left", 4, 0);
++	if (sv != NULL) channel->left = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "kicked", 6, 0);
++	if (sv != NULL) channel->kicked = (int)SvIV(*sv);
++
++	return channel;
++}
++
++QUERY_REC * perl_query_fill_object(QUERY_REC *query, HV *hv)
++{
++	SV **sv;
++
++	g_return_val_if_fail(query != NULL, NULL);
++	g_return_val_if_fail(hv != NULL, NULL);
++
++	perl_window_item_fill_object((WI_ITEM_REC *)query, hv);
++
++	sv = hv_fetch(hv, "name", 4, 0);
++	if (sv != NULL) query->name = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "last_unread_msg", 15, 0);
++	if (sv != NULL) query->last_unread_msg = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "address", 7, 0);
++	if (sv != NULL) query->address = g_strdup((char *)SvPV_nolen(*sv));
++
++	sv = hv_fetch(hv, "unwanted", 8, 0);
++	if (sv != NULL) query->unwanted = (int)SvIV(*sv);
++
++	return query;
++}
++
++NICK_REC * perl_nick_fill_object(NICK_REC *nick, HV *hv)
++{
++	SV **sv;
++
++	g_return_val_if_fail(nick != NULL, NULL);
++	g_return_val_if_fail(hv != NULL, NULL);
++
++	sv = hv_fetch(hv, "nick", 4, 0);
++	if (sv != NULL) nick->nick = g_strdup((char *)SvPV_nolen(*sv));
++	sv = hv_fetch(hv, "host", 4, 0);
++	if (sv != NULL) nick->host = g_strdup((char *)SvPV_nolen(*sv));
++	sv = hv_fetch(hv, "realname", 8, 0);
++	if (sv != NULL) nick->realname = g_strdup((char *)SvPV_nolen(*sv));
++	sv = hv_fetch(hv, "hops", 4, 0);
++	if (sv != NULL) nick->hops = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "gone", 4, 0);
++	if (sv != NULL) nick->gone = (int)SvIV(*sv);
++	sv = hv_fetch(hv, "serverop", 8, 0);
++	if (sv != NULL) nick->serverop = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "op", 2, 0);
++	if (sv != NULL) nick->op = (int)SvIV(*sv);
++	sv = hv_fetch(hv, "halfop", 6, 0);
++	if (sv != NULL) nick->halfop = (int)SvIV(*sv);
++	sv = hv_fetch(hv, "voice", 5, 0);
++	if (sv != NULL) nick->voice = (int)SvIV(*sv);
++
++	sv = hv_fetch(hv, "last_check", 10, 0);
++	if (sv != NULL) nick->last_check = (int)SvIV(*sv);
++	sv = hv_fetch(hv, "send_massjoin", 13, 0);
++	if (sv != NULL) nick->send_massjoin = (int)SvIV(*sv);
++
++	return nick;
++}
++
+ static void remove_newlines(char *str)
+ {
+ 	char *writing = str;
+@@ -563,7 +990,7 @@
+ {
+ 	static char *items[] = {
+ 		"Chatnet",
+-		"Server", "ServerConnect", "ServerSetup",
++		"Server", "Connect", "ServerSetup", "ChannelSetup",
+ 		"Channel", "Query",
+ 		"Nick"
+ 	};
+@@ -618,6 +1045,16 @@
+ 	irssi_add_object(type, chat_type, stash,
+ 			 (PERL_OBJECT_FUNC) perl_connect_fill_hash);
+ 
++	type = module_get_uniq_id("SERVER SETUP", 0);
++	g_snprintf(stash, sizeof(stash), "Irssi::%s::ServerSetup", name);
++	irssi_add_object(type, chat_type, stash,
++			 (PERL_OBJECT_FUNC) perl_server_setup_fill_hash);
++
++	type = module_get_uniq_id("CHANNEL SETUP", 0);
++	g_snprintf(stash, sizeof(stash), "Irssi::%s::ChannelSetup", name);
++	irssi_add_object(type, chat_type, stash,
++			 (PERL_OBJECT_FUNC) perl_channel_setup_fill_hash);
++
+ 	/* register ISAs */
+ 	for (n = 0; n < sizeof(items)/sizeof(items[0]); n++) {
+ 		g_snprintf(code, sizeof(code),
+Index: src/perl/ui/Themes.xs
+===================================================================
+--- src/perl/ui/Themes.xs	(revision 5102)
++++ src/perl/ui/Themes.xs	(working copy)
+@@ -80,6 +80,13 @@
+ 	RETVAL
+ 
+ void
++theme_unregister(package = NULL)
++	char* package
++CODE:
++	if (package == NULL) package = g_strdup(perl_get_package());
++	perl_unregister_theme(package);
++
++void
+ theme_register(formats)
+ 	SV *formats
+ PREINIT:
+Index: src/perl/perl-common.h
+===================================================================
+--- src/perl/perl-common.h	(revision 5102)
++++ src/perl/perl-common.h	(working copy)
+@@ -61,6 +61,7 @@
+ void perl_command(const char *cmd, SERVER_REC *server, WI_ITEM_REC *item);
+ 
+ void perl_chatnet_fill_hash(HV *hv, CHATNET_REC *chatnet);
++void perl_server_setup_fill_hash(HV *hv, SERVER_SETUP_REC *setup);
+ void perl_connect_fill_hash(HV *hv, SERVER_CONNECT_REC *conn);
+ void perl_server_fill_hash(HV *hv, SERVER_REC *server);
+ void perl_window_item_fill_hash(HV *hv, WI_ITEM_REC *item);
+@@ -68,6 +69,16 @@
+ void perl_query_fill_hash(HV *hv, QUERY_REC *query);
+ void perl_nick_fill_hash(HV *hv, NICK_REC *nick);
+ 
++CHATNET_REC * perl_chatnet_fill_object(CHATNET_REC *chatnet, HV *hv);
++SERVER_SETUP_REC * perl_server_setup_fill_object(SERVER_SETUP_REC *setup, HV *hv);
++CHANNEL_SETUP_REC * perl_channel_setup_fill_object(CHANNEL_SETUP_REC *setup, HV *hv);
++SERVER_CONNECT_REC * perl_connect_fill_object(SERVER_CONNECT_REC *conn, HV *hv);
++SERVER_REC * perl_server_fill_object(SERVER_REC *server, HV *hv);
++WI_ITEM_REC * perl_window_item_fill_object(WI_ITEM_REC *item, HV *hv);
++CHANNEL_REC * perl_channel_fill_object(CHANNEL_REC *channel, HV *hv);
++QUERY_REC * perl_query_fill_object(QUERY_REC *query, HV *hv);
++NICK_REC * perl_nick_fill_object(NICK_REC *nick, HV *hv);
++
+ #define irssi_boot(x) { \
+ 	extern void boot_Irssi__##x(pTHX_ CV *cv); \
+ 	irssi_callXS(boot_Irssi__##x, cv, mark); \
+Index: src/core/queries.c
+===================================================================
+--- src/core/queries.c	(revision 5102)
++++ src/core/queries.c	(working copy)
+@@ -45,7 +45,7 @@
+ 	query->get_target = query_get_target;
+ 	query->createtime = time(NULL);
+ 	query->last_unread_msg = time(NULL);
+-	query->visible_name = g_strdup(query->name);
++	if (query->visible_name == NULL) query->visible_name = g_strdup(query->name);
+ 
+ 	if (query->server_tag != NULL) {
+ 		query->server = server_find_tag(query->server_tag);
+Index: src/core/session.c
+===================================================================
+--- src/core/session.c	(revision 5102)
++++ src/core/session.c	(working copy)
+@@ -165,15 +165,21 @@
+ 	config_node_set_str(config, node, "ssl_cafile", server->connrec->ssl_cafile);
+ 	config_node_set_str(config, node, "ssl_capath", server->connrec->ssl_capath);
+ 
+-	handle = g_io_channel_unix_get_fd(net_sendbuffer_handle(server->handle));
+-	config_node_set_int(config, node, "handle", handle);
++	config_node_set_int(config, node, "no_connect", server->connrec->no_connect);
+ 
++	if (server->handle) {
++		handle = g_io_channel_unix_get_fd(net_sendbuffer_handle(server->handle));
++		config_node_set_int(config, node, "handle", handle);
++	}
++
+ 	signal_emit("session save server", 3, server, config, node);
+ 
+-	/* fake the server disconnection */
+-	g_io_channel_unref(net_sendbuffer_handle(server->handle));
+-	net_sendbuffer_destroy(server->handle, FALSE);
+-	server->handle = NULL;
++	if (server->handle) {
++		/* fake the server disconnection */
++		g_io_channel_unref(net_sendbuffer_handle(server->handle));
++		net_sendbuffer_destroy(server->handle, FALSE);
++		server->handle = NULL;
++	}
+ 
+ 	server->connection_lost = TRUE;
+         server->no_reconnect = TRUE;
+@@ -236,7 +242,7 @@
+ 	SERVER_CONNECT_REC *conn;
+ 	SERVER_REC *server;
+ 	const char *chat_type, *address, *chatnet, *password, *nick;
+-        int port, handle;
++	int port, handle, no_connect;
+ 
+         chat_type = config_node_get_str(node, "chat_type", NULL);
+ 	address = config_node_get_str(node, "address", NULL);
+@@ -245,13 +251,14 @@
+ 	password = config_node_get_str(node, "password", NULL);
+ 	nick = config_node_get_str(node, "nick", NULL);
+ 	handle = config_node_get_int(node, "handle", -1);
++	no_connect = config_node_get_int(node, "no_connect", 0);
+ 
+-	if (chat_type == NULL || address == NULL || nick == NULL || handle < 0)
++	if (chat_type == NULL || address == NULL || nick == NULL || (handle < 0 && !no_connect))
+ 		return;
+ 
+ 	proto = chat_protocol_find(chat_type);
+ 	if (proto == NULL || proto->not_initialized) {
+-		if (handle < 0) close(handle);
++		if (handle > 0) close(handle);
+ 		return;
+ 	}
+ 
+@@ -259,7 +266,7 @@
+ 				  chatnet, password, nick);
+ 	if (conn != NULL) {
+ 		conn->reconnection = TRUE;
+-		conn->connect_handle = g_io_channel_unix_new(handle);
++		if (handle > 0) conn->connect_handle = g_io_channel_unix_new(handle);
+ 
+ 		server = proto->server_init_connect(conn);
+ 		server->version = g_strdup(config_node_get_str(node, "version", NULL));
