@@ -26,7 +26,7 @@ fi
 echo -n 'patch sources? [Y/n] '
 read cont
 if ([ "$cont" == "y" ] || [ "$cont" == "yes" ] || [ "$cont" == "" ]); then
-  patch -p0 -d irssi-0.8.12 <irssi-$irssi_ver-tg.patch
+  patch -p0 -d irssi-$irssi_ver <irssi-$irssi_ver-tg.patch
   #patch -p0 -d perlpsyc <perlPSYC-0.25-tg.patch
 fi
 echo -n "install perlPSYC to $irssi/lib? [Y/n] "
