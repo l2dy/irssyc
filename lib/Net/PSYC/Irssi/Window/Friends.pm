@@ -73,8 +73,7 @@ sub msg {
     };
     /^(?:_request_friendship_(implied)|(?:_echo)?_notice_friendship_established)/ && do {
       my $implied = $1 && $1 eq 'implied';
-      my $nick = $vars->{_nick_target} || $vars->{_nick} || $name;
-      $uni = $s->name2uni($nick);
+      my $nick = $s->get_name($uni);
       if ($s->{members}->{$uni}) {
         $s->print_notice("Friendship request: $nick is already your friend") unless $implied;
         return 0;
