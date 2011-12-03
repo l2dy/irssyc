@@ -32,6 +32,7 @@
 
 #include "psyc-servers.h"
 #include "psyc-channels.h"
+#include "psyc-commands.h"
 #include "psyc-formats.h"
 
 #define RECVBUFLEN PSYC_MAX_PACKET_SIZE
@@ -88,14 +89,6 @@ static const char *
 get_nick_flags ()
 {
     return "";
-}
-
-static void
-send_message (PSYC_SERVER_REC *server, const char *target,
-              const char *msg, int target_type)
-{
-    LOG_DEBUG(">> psyc_server:send_message(%s, %s, %d)\n", target, msg, target_type);
-    psyc_client_message(server->client, target, strlen(target), msg, strlen(msg));
 }
 
 static void

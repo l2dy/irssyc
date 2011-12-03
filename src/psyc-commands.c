@@ -32,6 +32,26 @@
 #include <psyc/client.h>
 #include <psyc/client/commands.h>
 
+void
+send_message (PSYC_SERVER_REC *server, const char *target,
+             const char *msg, int target_type)
+{
+    LOG_DEBUG(">> psyc_server:send_message(%s, %s, %d)\n", target, msg, target_type);
+
+    psyc_client_message(server->client, target, strlen(target), msg, strlen(msg));
+}
+
+static void
+cmd_me (const char *msg, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    g_return_if_fail(msg != NULL);
+    CMD_PSYC_SERVER(server);
+    CMD_PSYC_CHANNEL(channel);
+
+    psyc_client_message_action(server->client, channel->name, strlen(channel->name),
+                               msg, strlen(msg));
+}
+
 // NICK <new nick>
 static void
 cmd_nick (const char *data, PSYC_SERVER_REC *server, WI_ITEM_REC *witem)
@@ -70,9 +90,9 @@ cmd_state_list (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *cha
                        PSYCTXT_STATE_LIST_HEADER);
 
     ssize_t c = psyc_client_state_iterate(server->client,
-                                         channel->name, strlen(channel->name),
-                                         (PsycClientStateIterator)state_list_var,
-                                         channel);
+                                          channel->name, strlen(channel->name),
+                                          (PsycClientStateIterator)state_list_var,
+                                          channel);
     char count[11];
     sprintf(count, "%ld", c);
 
@@ -179,9 +199,17 @@ cmd_state_resync (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *c
     psyc_client_state_resync(server->client, channel->name, strlen(channel->name));
 }
 
+static void
+sig_message_own_public (PSYC_SERVER_REC *server, const char *msg, const char *target)
+{
+    // don't print own messages, wait for echo
+    signal_stop();
+}
+
 void
 psyc_commands_init ()
 {
+    command_bind_psyc("me", NULL, (SIGNAL_FUNC)cmd_me);
     command_bind_psyc("nick", NULL, (SIGNAL_FUNC)cmd_nick);
     command_bind_psyc("state", NULL, (SIGNAL_FUNC)cmd_state);
     command_bind_psyc("state list", NULL, (SIGNAL_FUNC)cmd_state_list);
@@ -189,11 +217,14 @@ psyc_commands_init ()
     command_bind_psyc("state set", NULL, (SIGNAL_FUNC)cmd_state_set);
     command_bind_psyc("state reset", NULL, (SIGNAL_FUNC)cmd_state_reset);
     command_bind_psyc("state resync", NULL, (SIGNAL_FUNC)cmd_state_resync);
+
+    signal_add_last("message own_public", (SIGNAL_FUNC) sig_message_own_public);
 }
 
 void
 psyc_commands_deinit ()
 {
+    command_unbind("me", (SIGNAL_FUNC) cmd_me);
     command_unbind("nick", (SIGNAL_FUNC)cmd_nick);
     command_unbind("state", (SIGNAL_FUNC)cmd_state);
     command_unbind("state list", (SIGNAL_FUNC)cmd_state_list);

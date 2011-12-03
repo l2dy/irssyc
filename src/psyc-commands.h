@@ -50,4 +50,8 @@ psyc_commands_init ();
 void
 psyc_commands_deinit ();
 
+void
+send_message (PSYC_SERVER_REC *server, const char *target,
+              const char *msg, int target_type);
+
 #endif

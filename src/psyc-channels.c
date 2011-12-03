@@ -103,10 +103,20 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet
                                MSGLEVEL_PUBLIC,
                                PSYCTXT__MESSAGE, nick, msg, mode);
             break;
+        case PSYC_MC_MESSAGE_ECHO:
+            printformat_window(window_item_window(channel),
+                               MSGLEVEL_PUBLIC,
+                               PSYCTXT__MESSAGE_ECHO, nick, msg, mode);
+            break;
         case PSYC_MC_MESSAGE_ACTION:
             printformat_window(window_item_window(channel),
                                MSGLEVEL_PUBLIC | MSGLEVEL_ACTIONS,
                                PSYCTXT__MESSAGE_ACTION, nick, msg, mode);
+            break;
+        case PSYC_MC_MESSAGE_ECHO_ACTION:
+            printformat_window(window_item_window(channel),
+                               MSGLEVEL_PUBLIC | MSGLEVEL_ACTIONS,
+                               PSYCTXT__MESSAGE_ECHO_ACTION, nick, msg, mode);
             break;
         default:
             break;

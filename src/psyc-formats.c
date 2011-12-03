@@ -39,10 +39,10 @@ FORMAT_REC psyc_formats[] = {
     { "_status",
       "$0", 1, {0} },
 
-    { "_echo_message",
+    { "_message_echo",
       "{ownmsgnick $2 {ownnick $0}}$1", 3, {0} },
 
-    { "_echo_message__speakaction",
+    { "_message_echo__speakaction",
       "{ownmsgnick $2 {ownnick $0} {ownnick $4}}$1", 3, {0} },
 
     { "_message",
@@ -57,7 +57,7 @@ FORMAT_REC psyc_formats[] = {
     { "_message__hilight_speakaction",
       "{pubmsghinick $2 $0 {pubnick_action $4}}$1", 3, {0} },
 
-    { "_echo_message_action",
+    { "_message_echo_action",
       "{ownaction $0}$1", 2, {0} },
 
     { "_message_action",
