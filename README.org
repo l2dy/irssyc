@@ -1,0 +1,11 @@
+#+TITLE: Irssyc README
+
+* Configuration
+
+Start irssi and type the following commands:
+: /network add psyc
+: /server add -network psyc localhost 4404
+: /quit
+
+Edit ~/.irssi/config and change the network type to PSYC:
+:  psycd = { type = "PSYC"; };
