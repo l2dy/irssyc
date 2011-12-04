@@ -5,9 +5,9 @@
 Put libpsyc_core.so in =~/.irssi/lib/= or =/usr/lib/irssi/modules/=
 
 Start irssi and type the following commands:
-: /network add psyc
-: /server add -network psyc localhost 4404
+: /network add psycd
+: /server add -network psycd localhost 4404
 : /quit
 
 Edit ~/.irssi/config and change the network type to PSYC:
-:  psycd = { type = "PSYC"; };
+: psycd = { type = "PSYC"; };
