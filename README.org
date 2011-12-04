@@ -2,6 +2,8 @@
 
 * Configuration
 
+Put libpsyc_core.so in =~/.irssi/lib/= or =/usr/lib/irssi/modules/=
+
 Start irssi and type the following commands:
 : /network add psyc
 : /server add -network psyc localhost 4404
