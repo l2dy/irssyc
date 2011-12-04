@@ -23,6 +23,8 @@
 #include <core/channels.h>
 #include <core/chat-protocols.h>
 #include <core/channels.h>
+#include <fe-common/core/printtext.h>
+#include <fe-common/core/window-items.h>
 
 /* Returns PSYC_CHANNEL_REC if it's PSYC channel, NULL if it isn't. */
 #define PSYC_CHANNEL(channel) \
@@ -40,19 +42,39 @@ struct _PSYC_CHANNEL_REC {
 #define psyc_channel_find(server, name) \
 	PSYC_CHANNEL(channel_find(SERVER(server), name))
 
+static inline void
+printformat_channel (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel,
+                     int level, int formatnum, ...)
+{
+    va_list va;
+    va_start(va, formatnum);
+
+    if (channel)
+        printformat_module_window(MODULE_NAME, window_item_window(channel), level,
+                                  formatnum, va);
+    else
+        printformat_module(MODULE_NAME, server, NULL, level,
+                           formatnum, va);
+    va_end(va);
+}
+
 /* Create new PSYC channel record */
 PSYC_CHANNEL_REC *
 psyc_channel_create (PSYC_SERVER_REC *server, const char *name,
                      const char *visible_name, int automatic);
 
 void
-psyc_channel_join (PSYC_SERVER_REC *server, const char *uni, int automatic);
-
-void
 psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet *p,
                       PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
                       char *uni, size_t unilen, char *nick, size_t nicklen,
                       char *method, size_t methodlen, char *body, size_t bodylen);
+
+void
+psyc_channel_send_message (PSYC_SERVER_REC *server, const char *target,
+                           const char *msg, int target_type);
+
+void
+psyc_channel_join (PSYC_SERVER_REC *server, const char *uni, int automatic);
 
 void
 psyc_channels_init ();

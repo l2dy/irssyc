@@ -91,19 +91,21 @@ get_nick_flags ()
     return "";
 }
 
-static void
+static PsycRC
 transmit (PSYC_SERVER_REC *server, const char *data, size_t len)
 {
     LOG_DEBUG(">> psyc_server:transmit(%lu)\n", len);
 
     if (!server || !IS_PSYC_SERVER(server)
         || server->disconnected || server->connection_lost || !server->handle)
-        return;
+        return PSYC_ERROR;
 
     if (net_sendbuffer_send(server->handle, data, len) == -1) {
         LOG_DEBUG("transmit error: %lu\n", len);
         server->connection_lost = TRUE;
     }
+
+    return PSYC_OK;
 }
 
 static void
@@ -124,12 +126,15 @@ unlinked (PSYC_SERVER_REC *server, Packet *p)
 }
 
 static void
-nick_changed (PSYC_SERVER_REC *server, char *nick, size_t nicklen)
+nick_change (PSYC_SERVER_REC *server, char *ctx, size_t ctxlen,
+             char *uni, size_t unilen, char *nick, size_t nicklen)
 {
-    LOG_DEBUG(">> psyc_server:nick_changed()\n");
+    LOG_DEBUG(">> psyc_server:nick_change()\n");
 
-    g_free(server->nick);
-    server->nick = g_strdup(nick);
+    if (!unilen) { // own nick
+        g_free(server->nick);
+        server->nick = g_strdup(nick);
+    }
 }
 
 static void
@@ -139,8 +144,8 @@ receive (PSYC_SERVER_REC *server, Packet *p,
          char *uni, size_t unilen, char *nick, size_t nicklen,
          char *method, size_t methodlen, char *data, size_t datalen)
 {
-    LOG_DEBUG(">> psyc_server:receive(%.*s, %u, %u, %u, "
-              "%.*s, %.*s, %.*s, %.*s, %.*s)\n",
+    LOG_DEBUG(">> psyc_server:receive(method=%.*s, mc=%u, mc_family=%u, mc_flag=%u, "
+              "ctx=%.*s, ctxname=%.*s, uni=%.*s, nick=%.*s, data=%.*s)\n",
               (int)S2ARG2(p->method), mc, mc_family, mc_flag,
               (int)ctxlen, ctx, (int)ctxnamelen, ctxname,
               (int)unilen, uni, (int)nicklen, nick, (int)datalen, data);
@@ -209,6 +214,7 @@ PsycClientEvents client_events = {
     .receive = (PsycClientReceive) receive,
     .linked = (PsycClientLink) linked,
     .unlinked = (PsycClientLink) unlinked,
+    .nick_change = (PsycClientNickChange) nick_change,
 };
 
 static void
@@ -223,7 +229,7 @@ sig_server_connected (PSYC_SERVER_REC *server)
     server->ischannel = is_channel;
     server->isnickflag = (void *) is_nick_flag;
     server->get_nick_flags = (void *) get_nick_flags;
-    server->send_message = send_message;
+    server->send_message = psyc_channel_send_message;
 
     server->client = psyc_client_create(server->nick, strlen(server->nick),
                                         &client_events, server,

@@ -52,7 +52,7 @@ struct _PSYC_SERVER_REC {
     PROTO_CHECK_CAST(SERVER_SETUP(server), PSYC_SERVER_SETUP_REC,       \
                      chat_type, "PSYC")
 
-#define IS_PSYC_SERVER_SETUP(server)                    \
+#define IS_PSYC_SERVER_SETUP(server)            \
     (PSYC_SERVER_SETUP(server) ? TRUE : FALSE)
 
 typedef struct {
