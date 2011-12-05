@@ -42,21 +42,14 @@ struct _PSYC_CHANNEL_REC {
 #define psyc_channel_find(server, name) \
 	PSYC_CHANNEL(channel_find(SERVER(server), name))
 
-static inline void
-printformat_channel (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel,
-                     int level, int formatnum, ...)
-{
-    va_list va;
-    va_start(va, formatnum);
-
-    if (channel)
-        printformat_module_window(MODULE_NAME, window_item_window(channel), level,
-                                  formatnum, va);
-    else
-        printformat_module(MODULE_NAME, server, NULL, level,
-                           formatnum, va);
-    va_end(va);
-}
+#define printformat_channel(server, channel, level, formatnum...)       \
+    G_STMT_START {                                                      \
+        if (channel)                                                     \
+            printformat_window(window_item_window(channel), level,     \
+                               ##formatnum);                            \
+        else                                                            \
+            printformat(server, NULL, level, ##formatnum);              \
+    } G_STMT_END
 
 /* Create new PSYC channel record */
 PSYC_CHANNEL_REC *

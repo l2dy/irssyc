@@ -191,30 +191,46 @@ cmd_me (const char *msg, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 
 // NICK <new nick>
 static void
-cmd_nick (const char *data, PSYC_SERVER_REC *server, WI_ITEM_REC *witem)
+cmd_nick (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
     void *free_arg;
     char *nick;
 
     g_return_if_fail(data != NULL);
     CMD_PSYC_SERVER(server);
+    if (channel != NULL && !IS_PSYC_CHANNEL(channel))
+        return;
     if (!cmd_get_params(data, &free_arg, 1, &nick))
         return;
 
-    //psyc_client_set_nick(server->client, nick, strlen(nick));
+    char *ctx = NULL;
+    size_t ctxlen = 0;
+    if (channel) {
+        ctx = channel->name;
+        ctxlen = strlen(channel->name);
+    }
+
+    psyc_client_state_set(server->client, ctx, ctxlen,
+                          '=', PSYC_C2ARG("_nick"),
+                          nick, strlen(nick));
 
     cmd_params_free(free_arg);
 }
 
+struct srvchan {
+    PSYC_SERVER_REC *server;
+    PSYC_CHANNEL_REC *channel;
+};
+
 static void
-state_list_var (PSYC_CHANNEL_REC *channel, Modifier *mod, PsycOperator oper,
+state_list_var (struct srvchan *sc, Modifier *mod, PsycOperator oper,
                 char *name, size_t namelen, char *value, size_t valuelen)
 {
     LOG_DEBUG(">> state_list_var(%.*s, %.*s)\n",
               (int)namelen, name, (int)valuelen, value);
 
-    printformat_window(window_item_window(channel), MSGLEVEL_CLIENTCRAP,
-                       PSYCTXT_STATE_LIST_VAR, name, value);
+    printformat_channel(sc->server, sc->channel, MSGLEVEL_CLIENTCRAP,
+                        PSYCTXT_STATE_LIST_VAR, name, value);
 }
 
 // STATE LIST
@@ -223,17 +239,23 @@ cmd_state_list (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *cha
 {
     LOG_DEBUG(">> cmd_state_list()\n");
 
-    printformat_window(window_item_window(channel), MSGLEVEL_CLIENTCRAP,
-                       PSYCTXT_STATE_LIST_HEADER);
+    printformat_channel(server, channel, MSGLEVEL_CLIENTCRAP,
+                        PSYCTXT_STATE_LIST_HEADER);
 
-    ssize_t c = psyc_client_state_iterate(server->client,
-                                          channel->name, strlen(channel->name),
-                                          (PsycClientStateIterator)state_list_var,
-                                          channel);
+    char *ctx = NULL;
+    size_t ctxlen = 0;
+    if (channel) {
+        ctx = channel->name;
+        ctxlen = strlen(channel->name);
+    }
+
+    struct srvchan sc = {server, channel};
+    ssize_t c = psyc_client_state_iterate(server->client, ctx, ctxlen,
+                                          (PsycClientStateIterator)state_list_var, &sc);
     char count[11];
     sprintf(count, "%ld", c);
 
-    printformat_window(window_item_window(channel), MSGLEVEL_CLIENTCRAP,
+    printformat_channel(server, channel, MSGLEVEL_CLIENTCRAP,
                        PSYCTXT_STATE_LIST_FOOTER, count);
 }
 

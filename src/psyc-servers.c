@@ -153,6 +153,10 @@ receive (PSYC_SERVER_REC *server, Packet *p,
     if (!server || !IS_PSYC_SERVER(server))
         return;
 
+    PsycString *u = &server->client->uni.full;
+    if (ctxlen == u->length && memcmp(ctx, S2ARG(*u)) == 0)
+        ctxlen = 0;
+
     if (ctxlen > 0) {
         PSYC_CHANNEL_REC *channel = psyc_channel_find(server, ctx);
         if (!channel)
