@@ -126,15 +126,22 @@ unlinked (PSYC_SERVER_REC *server, Packet *p)
 }
 
 static void
-nick_change (PSYC_SERVER_REC *server, char *ctx, size_t ctxlen,
-             char *uni, size_t unilen, char *nick, size_t nicklen)
+own_nick_change (PSYC_SERVER_REC *server, char *nick, size_t nicklen)
 {
-    LOG_DEBUG(">> psyc_server:nick_change()\n");
+    LOG_DEBUG(">> psyc_server:own_nick_change(%.*s)\n", (int)nicklen, nick);
 
-    if (!unilen) { // own nick
-        g_free(server->nick);
-        server->nick = g_strdup(nick);
-    }
+    g_free(server->nick);
+    server->nick = g_strdup(nick);
+    signal_emit("server nick changed", 1, server);
+}
+
+static void
+nick_change (PSYC_SERVER_REC *server, char *uni, size_t unilen,
+             char *nick, size_t nicklen)
+{
+    LOG_DEBUG(">> psyc_server:nick_change(%.*s, %.*s)\n",
+              (int)unilen, uni, (int)nicklen, nick);
+
 }
 
 static void
@@ -218,7 +225,10 @@ PsycClientEvents client_events = {
     .receive = (PsycClientReceive) receive,
     .linked = (PsycClientLink) linked,
     .unlinked = (PsycClientLink) unlinked,
+    .own_nick_change = (PsycClientOwnNickChange) own_nick_change,
     .nick_change = (PsycClientNickChange) nick_change,
+    .local_nick_change = (PsycClientLocalNickChange) psyc_channel_nick_change,
+    .descr_change = (PsycClientNickChange) psyc_channel_descr_change,
 };
 
 static void

@@ -67,6 +67,14 @@ psyc_channel_send_message (PSYC_SERVER_REC *server, const char *target,
                            const char *msg, int target_type);
 
 void
+psyc_channel_nick_change (PSYC_SERVER_REC *server, char *ctx, size_t ctxlen,
+                          char *uni, size_t unilen, char *nick, size_t nicklen);
+
+void
+psyc_channel_descr_change (PSYC_SERVER_REC *server, char *ctx, size_t ctxlen,
+                           char *topic, size_t topiclen);
+
+void
 psyc_channel_join (PSYC_SERVER_REC *server, const char *uni, int automatic);
 
 void

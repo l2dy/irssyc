@@ -63,10 +63,10 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet
 {
     LOG_DEBUG(">> psyc_channel_receive(%u)\n", mc);
 
-    int for_me;
+    int for_me = 0;
     char *color, *mode, *msg = data, *msg1 = NULL, *msg2 = NULL;
-    HILIGHT_REC *hilight;
-    NICK_REC *nrec;
+    HILIGHT_REC *hilight = NULL;
+    NICK_REC *nrec = NULL;
 
     if (settings_get_bool("psyc_debug"))
         printformat_window(window_item_window(channel),
@@ -77,17 +77,19 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet
         if (!nick)
             nick = uni;
 
-        for_me = !settings_get_bool("hilight_nick_matches") ? FALSE :
-            nick_match_msg(CHANNEL(channel), data, server->nick);
-        hilight = for_me ? NULL :
-            hilight_match_nick(SERVER(server), channel->name, nick, uni,
+        if (data) {
+            for_me = !settings_get_bool("hilight_nick_matches") ? FALSE :
+                nick_match_msg(CHANNEL(channel), msg, server->nick);
+            hilight = for_me ? NULL :
+                hilight_match_nick(SERVER(server), channel->name, nick, uni,
                                MSGLEVEL_PUBLIC, msg);
-        color = (hilight == NULL) ? NULL : hilight_get_color(hilight);
+            color = (hilight == NULL) ? NULL : hilight_get_color(hilight);
 
-        msg = msg1 = recode_in(SERVER(server), data, uni);
+            msg = msg1 = recode_in(SERVER(server), data, uni);
 
-        if (settings_get_bool("emphasis"))
-            msg = msg2 = expand_emphasis((WI_ITEM_REC *)channel, msg);
+            if (settings_get_bool("emphasis"))
+                msg = msg2 = expand_emphasis((WI_ITEM_REC *)channel, msg);
+        }
 
         mode = settings_get_bool("show_nickmode")
             ? settings_get_bool("show_nickmode_empty") ? " " : "" : "";
@@ -147,6 +149,35 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet
 
     if (methodlen > 0)
         signal_emit(method, 5, server, msg, nick, uni, channel->name);
+}
+
+void
+psyc_channel_nick_change (PSYC_SERVER_REC *server, char *ctx, size_t ctxlen,
+                          char *uni, size_t unilen, char *nick, size_t nicklen)
+{
+    LOG_DEBUG(">> psyc_channel_nick_change()\n");
+
+}
+
+void
+psyc_channel_descr_change (PSYC_SERVER_REC *server, char *ctx, size_t ctxlen,
+                           char *topic, size_t topiclen)
+{
+    LOG_DEBUG(">> psyc_channel_descr_change(%.*s, %.*s)\n",
+              (int)ctxlen, ctx, (int)topiclen, topic);
+
+    if (!server || !IS_PSYC_SERVER(server))
+        return;
+
+    PSYC_CHANNEL_REC *channel = psyc_channel_find(server, ctx);
+    if (!channel)
+        return;
+
+    channel->topic = g_strdup(topic);
+    //channel->topic_by = ;
+    //channel->topic_time = ;
+
+    signal_emit("channel topic changed", 1, channel);
 }
 
 // JOIN <channel>
@@ -213,6 +244,42 @@ cmd_nick (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
     psyc_client_state_set(server->client, ctx, ctxlen,
                           '=', PSYC_C2ARG("_nick"),
                           nick, strlen(nick));
+
+    cmd_params_free(free_arg);
+}
+
+// TOPIC <new topic>
+static void
+cmd_topic (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    GHashTable *optlist;
+    void *free_arg = NULL;
+    char *topic = data;
+
+    g_return_if_fail(data != NULL);
+    CMD_PSYC_SERVER(server);
+    if (channel != NULL && !IS_PSYC_CHANNEL(channel))
+        return;
+
+    if (!cmd_get_params(data, &free_arg, 1 | PARAM_FLAG_OPTIONS | PARAM_FLAG_GETREST,
+                        "topic", &optlist, &topic))
+        return;
+
+    if (*topic == 0)
+        return;
+
+    if (g_hash_table_lookup(optlist, "delete") != NULL)
+        topic = "";
+
+    char *ctx = NULL;
+    size_t ctxlen = 0;
+    if (channel) {
+        ctx = channel->name;
+        ctxlen = strlen(channel->name);
+    }
+
+    psyc_client_state_set(server->client, ctx, ctxlen,
+                          '=', PSYC_C2ARG("_description"), topic, strlen(topic));
 
     cmd_params_free(free_arg);
 }
@@ -394,6 +461,7 @@ psyc_channels_init ()
 {
     command_bind_psyc("me", NULL, (SIGNAL_FUNC) cmd_me);
     command_bind_psyc("nick", NULL, (SIGNAL_FUNC) cmd_nick);
+    command_bind_psyc("topic", NULL, (SIGNAL_FUNC) cmd_topic);
     command_bind_psyc("part", NULL, (SIGNAL_FUNC) cmd_part);
     command_bind_psyc("state", NULL, (SIGNAL_FUNC) cmd_state);
     command_bind_psyc("state list", NULL, (SIGNAL_FUNC) cmd_state_list);
@@ -410,6 +478,7 @@ psyc_channels_deinit ()
 {
     command_unbind("me", (SIGNAL_FUNC) cmd_me);
     command_unbind("nick", (SIGNAL_FUNC) cmd_nick);
+    command_unbind("topic", (SIGNAL_FUNC) cmd_topic);
     command_unbind("part", (SIGNAL_FUNC) cmd_part);
     command_unbind("state", (SIGNAL_FUNC) cmd_state);
     command_unbind("state list", (SIGNAL_FUNC) cmd_state_list);
