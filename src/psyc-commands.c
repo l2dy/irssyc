@@ -32,13 +32,26 @@
 #include <psyc/client.h>
 #include <psyc/client/commands.h>
 
+static void
+cmd_hello (const char *msg, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    g_return_if_fail(msg != NULL);
+    CMD_PSYC_SERVER(server);
+
+    if (*msg == 0)
+        psyc_client_hello_get(server->client);
+    else
+        psyc_client_hello_offer(server->client, msg, strlen(msg));
+}
 
 void
 psyc_commands_init ()
 {
+    command_bind_psyc("hello", NULL, (SIGNAL_FUNC) cmd_hello);
 }
 
 void
 psyc_commands_deinit ()
 {
+    command_unbind("hello", (SIGNAL_FUNC) cmd_hello);
 }
