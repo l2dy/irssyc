@@ -56,7 +56,8 @@ psyc_channel_create (PSYC_SERVER_REC *server, const char *name,
 }
 
 void
-psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet *p,
+psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel,
+                      Packet *p, uint8_t from_me,
                       PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
                       char *uni, size_t unilen, char *nick, size_t nicklen,
                       char *method, size_t methodlen, char *data, size_t datalen)
@@ -96,24 +97,16 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet
 
         switch (mc) {
         case PSYC_MC_MESSAGE:
-            printformat_window(window_item_window(channel),
-                               MSGLEVEL_PUBLIC,
-                               PSYCTXT__MESSAGE, nick, msg, mode);
-            break;
-        case PSYC_MC_MESSAGE_ECHO:
-            printformat_window(window_item_window(channel),
-                               MSGLEVEL_PUBLIC,
-                               PSYCTXT__MESSAGE_ECHO, nick, msg, mode);
+            printformat_window(window_item_window(channel), MSGLEVEL_PUBLIC,
+                               from_me ? PSYCTXT__MESSAGE_ECHO : PSYCTXT__MESSAGE,
+                               nick, msg, mode);
             break;
         case PSYC_MC_MESSAGE_ACTION:
             printformat_window(window_item_window(channel),
                                MSGLEVEL_PUBLIC | MSGLEVEL_ACTIONS,
-                               PSYCTXT__MESSAGE_ACTION, nick, msg, mode);
-            break;
-        case PSYC_MC_MESSAGE_ECHO_ACTION:
-            printformat_window(window_item_window(channel),
-                               MSGLEVEL_PUBLIC | MSGLEVEL_ACTIONS,
-                               PSYCTXT__MESSAGE_ECHO_ACTION, nick, msg, mode);
+                               from_me ? PSYCTXT__MESSAGE_ECHO_ACTION
+                                       : PSYCTXT__MESSAGE_ACTION,
+                               nick, msg, mode);
             break;
         case PSYC_MC_ECHO_CONTEXT_ENTER:
             nrec = nicklist_find_mask(CHANNEL(channel), server->client->uni.full.data);

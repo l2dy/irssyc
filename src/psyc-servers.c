@@ -145,7 +145,7 @@ nick_change (PSYC_SERVER_REC *server, char *uni, size_t unilen,
 }
 
 static void
-receive (PSYC_SERVER_REC *server, Packet *p,
+receive (PSYC_SERVER_REC *server, Packet *p, uint8_t from_me,
          PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
          char *ctx, size_t ctxlen, char *ctxname, size_t ctxnamelen,
          char *uni, size_t unilen, char *nick, size_t nicklen,
@@ -155,7 +155,8 @@ receive (PSYC_SERVER_REC *server, Packet *p,
               "ctx=%.*s, ctxname=%.*s, uni=%.*s, nick=%.*s, data=%.*s)\n",
               (int)S2ARG2(p->method), mc, mc_family, mc_flag,
               (int)ctxlen, ctx, (int)ctxnamelen, ctxname,
-              (int)unilen, uni, (int)nicklen, nick, (int)datalen, data);
+              (int)unilen, uni, (int)nicklen, nick,
+              (int)datalen, data);
 
     if (!server || !IS_PSYC_SERVER(server))
         return;
@@ -169,7 +170,8 @@ receive (PSYC_SERVER_REC *server, Packet *p,
         if (!channel)
             channel = psyc_channel_create(server, ctx, ctxname, 0);
 
-        psyc_channel_receive(server, channel, p, mc, mc_family, mc_flag,
+        psyc_channel_receive(server, channel, p, from_me,
+                             mc, mc_family, mc_flag,
                              uni, unilen, nick, nicklen,
                              method, methodlen, data, datalen);
     } else {

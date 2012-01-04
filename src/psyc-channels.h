@@ -57,7 +57,8 @@ psyc_channel_create (PSYC_SERVER_REC *server, const char *name,
                      const char *visible_name, int automatic);
 
 void
-psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet *p,
+psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel,
+                      Packet *p, uint8_t from_me,
                       PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
                       char *uni, size_t unilen, char *nick, size_t nicklen,
                       char *method, size_t methodlen, char *body, size_t bodylen);
