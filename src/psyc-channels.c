@@ -118,6 +118,11 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel,
                 nicklist_set_own(CHANNEL(channel), nrec);
             }
             break;
+        case PSYC_MC_ECHO_CONTEXT_LEAVE:
+            signal_emit(method, 5, server, msg, nick, uni, channel->name);
+            channel_destroy(CHANNEL(channel));
+            methodlen = 0;
+            break;
         case PSYC_MC_NOTICE_CONTEXT_ENTER:
             nrec = nicklist_find_mask(CHANNEL(channel), uni);
             if (nrec)
@@ -192,6 +197,70 @@ cmd_part (const char *uni, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
     psyc_client_leave(server->client, channel->name, strlen(channel->name));
 }
 
+// SHARE <filename>
+static void
+cmd_share (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    void *free_arg;
+    char *fn;
+
+    g_return_if_fail(data != NULL);
+    CMD_PSYC_SERVER(server);
+    CMD_PSYC_CHANNEL(channel);
+
+    if (!cmd_get_params(data, &free_arg, 1, &fn))
+        return;
+
+    psyc_client_share(server->client, channel->name, strlen(channel->name),
+                      fn, strlen(fn));
+}
+
+// MEMBER
+static void
+cmd_member (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    LOG_DEBUG(">> cmd_member()\n");
+
+    g_return_if_fail(data != NULL);
+    CMD_PSYC_SERVER(server);
+
+    command_runsub("member", data, server, channel);
+}
+
+// MEMBER ADD <uniform|nick>
+static void
+cmd_member_add (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    void *free_arg;
+    char *uni;
+
+    g_return_if_fail(data != NULL);
+    CMD_PSYC_SERVER(server);
+    CMD_PSYC_CHANNEL(channel);
+
+    if (!cmd_get_params(data, &free_arg, 1, &uni))
+        return;
+
+    psyc_client_member_add(server->client, uni, strlen(uni));
+}
+
+// MEMBER REMOVE <uniform|nick>
+static void
+cmd_member_remove (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    void *free_arg;
+    char *uni;
+
+    g_return_if_fail(data != NULL);
+    CMD_PSYC_SERVER(server);
+    CMD_PSYC_CHANNEL(channel);
+
+    if (!cmd_get_params(data, &free_arg, 1, &uni))
+        return;
+
+    psyc_client_member_remove(server->client, uni, strlen(uni));
+}
+
 void
 psyc_channel_send_message (PSYC_SERVER_REC *server, const char *target,
                            const char *msg, int target_type)
@@ -203,11 +272,17 @@ psyc_channel_send_message (PSYC_SERVER_REC *server, const char *target,
 
 // ME <action>
 static void
-cmd_me (const char *msg, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+cmd_me (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    g_return_if_fail(msg != NULL);
+    void *free_arg;
+    char *msg;
+
+    g_return_if_fail(data != NULL);
     CMD_PSYC_SERVER(server);
     CMD_PSYC_CHANNEL(channel);
+
+    if (!cmd_get_params(data, &free_arg, 1, &msg))
+        return;
 
     psyc_client_message_action(server->client, channel->name, strlen(channel->name),
                                msg, strlen(msg));
@@ -282,7 +357,7 @@ struct srvchan {
     PSYC_CHANNEL_REC *channel;
 };
 
-static void
+static PsycRC
 state_list_var (struct srvchan *sc, Modifier *mod, PsycOperator oper,
                 char *name, size_t namelen, char *value, size_t valuelen)
 {
@@ -291,6 +366,7 @@ state_list_var (struct srvchan *sc, Modifier *mod, PsycOperator oper,
 
     printformat_channel(sc->server, sc->channel, MSGLEVEL_CLIENTCRAP,
                         PSYCTXT_STATE_LIST_VAR, name, value);
+    return PSYC_OK;
 }
 
 // STATE LIST
@@ -346,6 +422,10 @@ cmd_state_get (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *chan
     char *name;
 
     if (!cmd_get_params(data, &free_arg, 1, &name))
+        return;
+
+    size_t namelen = strlen(name);
+    if (!namelen)
         return;
 
     char *ctx = NULL;
@@ -456,6 +536,10 @@ psyc_channels_init ()
     command_bind_psyc("nick", NULL, (SIGNAL_FUNC) cmd_nick);
     command_bind_psyc("topic", NULL, (SIGNAL_FUNC) cmd_topic);
     command_bind_psyc("part", NULL, (SIGNAL_FUNC) cmd_part);
+    command_bind_psyc("member", NULL, (SIGNAL_FUNC) cmd_member);
+    command_bind_psyc("member add", NULL, (SIGNAL_FUNC) cmd_member_add);
+    command_bind_psyc("member remove", NULL, (SIGNAL_FUNC) cmd_member_remove);
+    command_bind_psyc("share", NULL, (SIGNAL_FUNC) cmd_share);
     command_bind_psyc("state", NULL, (SIGNAL_FUNC) cmd_state);
     command_bind_psyc("state list", NULL, (SIGNAL_FUNC) cmd_state_list);
     command_bind_psyc("state get", NULL, (SIGNAL_FUNC) cmd_state_get);
@@ -473,6 +557,10 @@ psyc_channels_deinit ()
     command_unbind("nick", (SIGNAL_FUNC) cmd_nick);
     command_unbind("topic", (SIGNAL_FUNC) cmd_topic);
     command_unbind("part", (SIGNAL_FUNC) cmd_part);
+    command_unbind("member", (SIGNAL_FUNC) cmd_member);
+    command_unbind("member add", (SIGNAL_FUNC) cmd_member_add);
+    command_unbind("member remove", (SIGNAL_FUNC) cmd_member_remove);
+    command_unbind("share", (SIGNAL_FUNC) cmd_share);
     command_unbind("state", (SIGNAL_FUNC) cmd_state);
     command_unbind("state list", (SIGNAL_FUNC) cmd_state_list);
     command_unbind("state get", (SIGNAL_FUNC) cmd_state_get);
