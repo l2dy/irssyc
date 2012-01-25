@@ -32,6 +32,112 @@
 #include <psyc/client.h>
 #include <psyc/client/commands.h>
 
+// PSYC
+static void
+cmd_psyc (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    LOG_DEBUG(">> cmd_psyc()\n");
+
+    g_return_if_fail(data != NULL);
+    CMD_PSYC_SERVER(server);
+
+    command_runsub("psyc", data, server, channel);
+}
+
+// PSYC ALIAS
+static void
+cmd_alias (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    LOG_DEBUG(">> cmd_alias()\n");
+
+    g_return_if_fail(data != NULL);
+    CMD_PSYC_SERVER(server);
+
+    command_runsub("psyc alias", data, server, channel);
+}
+
+// PSYC ALIAS ADD <nick> <uniform>
+static void
+cmd_alias_add (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    void *free_arg;
+    char *nick, *uni;
+
+    if (!cmd_get_params(data, &free_arg, 2, &nick, &uni))
+        return;
+
+    size_t nicklen = strlen(nick);
+    size_t unilen = strlen(uni);
+
+    if (!nicklen || !unilen)
+        return;
+
+    psyc_client_alias_add(server->client, nick, nicklen, uni, unilen);
+
+    cmd_params_free(free_arg);
+}
+
+// PSYC ALIAS REMOVE <nick>
+static void
+cmd_alias_remove (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    void *free_arg;
+    char *nick;
+
+    if (!cmd_get_params(data, &free_arg, 1, &nick))
+        return;
+
+    size_t nicklen = strlen(nick);
+
+    if (!nicklen)
+        return;
+
+    psyc_client_alias_remove(server->client, nick, nicklen);
+
+    cmd_params_free(free_arg);
+}
+
+// PSYC ALIAS CHANGE <old nick> <new nick>
+static void
+cmd_alias_change (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    void *free_arg;
+    char *oldnick, *newnick;
+
+    if (!cmd_get_params(data, &free_arg, 2, &oldnick, &newnick))
+        return;
+
+    size_t oldnicklen = strlen(oldnick);
+    size_t newnicklen = strlen(newnick);
+
+    if (!oldnicklen || !newnicklen)
+        return;
+
+    psyc_client_alias_change(server->client, oldnick, oldnicklen, newnick, newnicklen);
+
+    cmd_params_free(free_arg);
+}
+
+// NICK <new nick>
+static void
+cmd_nick (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
+{
+    void *free_arg;
+    char *nick;
+
+    g_return_if_fail(data != NULL);
+    CMD_PSYC_SERVER(server);
+
+    if (!cmd_get_params(data, &free_arg, 1, &nick))
+        return;
+
+    psyc_client_alias_add(server->client, nick, strlen(nick),
+                          PSYC_S2ARG(server->client->uni.full));
+
+    cmd_params_free(free_arg);
+}
+
+// PSYC HELLO [<hello msg>]
 static void
 cmd_hello (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
@@ -54,7 +160,7 @@ cmd_hello (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
     cmd_params_free(free_arg);
 }
 
-// FRIEND
+// PSYC FRIEND
 static void
 cmd_friend (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
@@ -63,10 +169,10 @@ cmd_friend (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel
     g_return_if_fail(data != NULL);
     CMD_PSYC_SERVER(server);
 
-    command_runsub("friend", data, server, channel);
+    command_runsub("psyc friend", data, server, channel);
 }
 
-// FRIEND REQUEST <uniform>
+// PSYC FRIEND REQUEST <uniform>
 static void
 cmd_friend_request (const char *data, PSYC_SERVER_REC *server,
                     PSYC_CHANNEL_REC *channel)
@@ -86,7 +192,7 @@ cmd_friend_request (const char *data, PSYC_SERVER_REC *server,
     cmd_params_free(free_arg);
 }
 
-// FRIEND APPROVE <uniform>
+// PSYC FRIEND APPROVE <uniform>
 static void
 cmd_friend_approve (const char *data, PSYC_SERVER_REC *server,
                     PSYC_CHANNEL_REC *channel)
@@ -109,17 +215,29 @@ cmd_friend_approve (const char *data, PSYC_SERVER_REC *server,
 void
 psyc_commands_init ()
 {
-    command_bind_psyc("hello", NULL, (SIGNAL_FUNC) cmd_hello);
-    command_bind_psyc("friend", NULL, (SIGNAL_FUNC) cmd_friend);
-    command_bind_psyc("friend request", NULL, (SIGNAL_FUNC) cmd_friend_request);
-    command_bind_psyc("friend approve", NULL, (SIGNAL_FUNC) cmd_friend_approve);
+    command_bind_psyc("psyc", NULL, (SIGNAL_FUNC) cmd_psyc);
+    command_bind_psyc("psyc alias", NULL, (SIGNAL_FUNC) cmd_alias);
+    command_bind_psyc("psyc alias add", NULL, (SIGNAL_FUNC) cmd_alias_add);
+    command_bind_psyc("psyc alias remove", NULL, (SIGNAL_FUNC) cmd_alias_remove);
+    command_bind_psyc("psyc alias change", NULL, (SIGNAL_FUNC) cmd_alias_change);
+    command_bind_psyc("nick", NULL, (SIGNAL_FUNC) cmd_nick);
+    command_bind_psyc("psyc hello", NULL, (SIGNAL_FUNC) cmd_hello);
+    command_bind_psyc("psyc friend", NULL, (SIGNAL_FUNC) cmd_friend);
+    command_bind_psyc("psyc friend request", NULL, (SIGNAL_FUNC) cmd_friend_request);
+    command_bind_psyc("psyc friend approve", NULL, (SIGNAL_FUNC) cmd_friend_approve);
 }
 
 void
 psyc_commands_deinit ()
 {
-    command_unbind("hello", (SIGNAL_FUNC) cmd_hello);
-    command_unbind("friend", (SIGNAL_FUNC) cmd_friend);
-    command_unbind("friend request", (SIGNAL_FUNC) cmd_friend_request);
-    command_unbind("friend approve", (SIGNAL_FUNC) cmd_friend_approve);
+    command_unbind("psyc", (SIGNAL_FUNC) cmd_psyc);
+    command_unbind("psyc alias", (SIGNAL_FUNC) cmd_alias);
+    command_unbind("psyc alias add", (SIGNAL_FUNC) cmd_alias_add);
+    command_unbind("psyc alias remove", (SIGNAL_FUNC) cmd_alias_remove);
+    command_unbind("psyc alias change", (SIGNAL_FUNC) cmd_alias_change);
+    command_unbind("nick", (SIGNAL_FUNC) cmd_nick);
+    command_unbind("psyc hello", (SIGNAL_FUNC) cmd_hello);
+    command_unbind("psyc friend", (SIGNAL_FUNC) cmd_friend);
+    command_unbind("psyc friend request", (SIGNAL_FUNC) cmd_friend_request);
+    command_unbind("psyc friend approve", (SIGNAL_FUNC) cmd_friend_approve);
 }

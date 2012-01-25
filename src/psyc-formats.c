@@ -30,6 +30,21 @@ FORMAT_REC psyc_formats[] = {
     { "default",
       "$0", 1, {0} },
 
+    { "_data",
+      "$0", 1, {0} },
+
+    { "_echo",
+      "$0", 1, {0} },
+
+    { "_error",
+      "$0", 1, {0} },
+
+    { "_failure",
+      "$0", 1, {0} },
+
+    { "_info",
+      "$0", 1, {0} },
+
     { "_notice",
       "$0", 1, {0} },
 
@@ -37,6 +52,9 @@ FORMAT_REC psyc_formats[] = {
       "$0", 1, {0} },
 
     { "_status",
+      "$0", 1, {0} },
+
+    { "_warning",
       "$0", 1, {0} },
 
     { "_message_echo",

@@ -49,44 +49,102 @@ psyc_channel_create (PSYC_SERVER_REC *server, const char *name,
 
     rec = g_new0(PSYC_CHANNEL_REC, 1);
     rec->no_modes = TRUE;
+    rec->joined = TRUE;
+    rec->synced = TRUE;
 
     channel_init((CHANNEL_REC *)rec, (SERVER_REC *)server,
                  name, visible_name, automatic);
+
+    signal_emit("channel joined", 1, rec);
+    signal_emit("channel sync", 1, rec);
+
     return rec;
 }
 
 void
-psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel,
-                      Packet *p, uint8_t from_me,
+psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet *p,
+                      uint8_t state_reset, uint8_t ownsrc, uint8_t ownctx,
                       PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
-                      char *uni, size_t unilen, char *nick, size_t nicklen,
-                      char *method, size_t methodlen, char *data, size_t datalen)
+                      const char *srcuni, size_t srcunilen,
+                      const char *srcnick, size_t srcnicklen,
+                      const char *method, size_t methodlen,
+                      const char *data, size_t datalen)
 {
     LOG_DEBUG(">> psyc_channel_receive(%u)\n", mc);
 
     int for_me = 0;
-    char *color, *mode, *msg = data, *msg1 = NULL, *msg2 = NULL;
+    char *color, *mode, *msg = data, *msg1 = NULL, *msg2 = NULL, *value;
     HILIGHT_REC *hilight = NULL;
     NICK_REC *nrec = NULL;
+    WINDOW_REC *win = window_item_window(channel);
 
     if (settings_get_bool("psyc_debug"))
-        printformat_window(window_item_window(channel),
+        printformat_window(win,
                            MSGLEVEL_CRAP | MSGLEVEL_NOHILIGHT | MSGLEVEL_NEVER,
                            PSYCTXT_PACKET, p->content.data);
 
+    switch (mc) {
+    case PSYC_MC_ECHO_CONTEXT_ENTER:
+        nrec = nicklist_find_mask(CHANNEL(channel), server->client->uni.full.data);
+        if (!nrec) {
+            nrec = g_new0(NICK_REC, 1);
+            nrec->nick = g_strdup(server->nick);
+            nrec->host = g_strdup(server->client->uni.full.data);
+            nicklist_insert(CHANNEL(channel), nrec);
+            nicklist_set_own(CHANNEL(channel), nrec);
+        }
+        break;
+    case PSYC_MC_ECHO_CONTEXT_LEAVE:
+        signal_emit(method, 5, server, msg, srcnick, srcuni, channel->name);
+        channel_destroy(CHANNEL(channel));
+        methodlen = 0;
+        break;
+    case PSYC_MC_NOTICE_CONTEXT_ENTER:
+        nrec = nicklist_find_mask(CHANNEL(channel), srcuni);
+        if (nrec)
+            break;
+        nrec = g_new0(NICK_REC, 1);
+        nrec->nick = g_strdup(srcnick ? srcnick : srcuni);
+        nrec->host = g_strdup(srcuni);
+        nicklist_insert(CHANNEL(channel), nrec);
+        break;
+    case PSYC_MC_NOTICE_CONTEXT_LEAVE:
+        nrec = nicklist_find_mask(CHANNEL(channel), srcuni);
+        if (nrec)
+            nicklist_remove(CHANNEL(channel), nrec);
+        break;
+    default:
+        break;
+    }
+
+    if (mc == PSYC_MC_NOTICE_SET || state_reset) {
+        value = psyc_client_state_get(server->client,
+                                      channel->name, strlen(channel->name),
+                                      PSYC_C2ARG("_description"), NULL);
+        if (value) {
+            if (channel->topic)
+                g_free(channel->topic);
+            channel->topic = g_strdup(value);
+            //channel->topic_by = ;
+            //channel->topic_time = ;
+            signal_emit("channel topic changed", 1, channel);
+        }
+    }
+
+    // print packet if needed
     if (mc_flag & PSYC_METHOD_VISIBLE) {
-        if (!nick)
-            nick = uni;
+        if (!srcnick)
+            srcnick = srcuni;
 
         if (data) {
             for_me = !settings_get_bool("hilight_nick_matches") ? FALSE :
                 nick_match_msg(CHANNEL(channel), msg, server->nick);
             hilight = for_me ? NULL :
-                hilight_match_nick(SERVER(server), channel->name, nick, uni,
+                hilight_match_nick(SERVER(server), channel->name, srcnick, srcuni,
                                MSGLEVEL_PUBLIC, msg);
             color = (hilight == NULL) ? NULL : hilight_get_color(hilight);
 
-            msg = msg1 = recode_in(SERVER(server), data, uni);
+            msg = msg1 = recode_in(SERVER(server), data, srcuni);
 
             if (settings_get_bool("emphasis"))
                 msg = msg2 = expand_emphasis((WI_ITEM_REC *)channel, msg);
@@ -95,49 +153,63 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel,
         mode = settings_get_bool("show_nickmode")
             ? settings_get_bool("show_nickmode_empty") ? " " : "" : "";
 
-        switch (mc) {
+        switch (mc_family) {
+        case PSYC_MC_DATA:
+            printformat_window(win, MSGLEVEL_CRAP, PSYCTXT__DATA, msg);
+            break;
+        case PSYC_MC_ECHO:
+            printformat_window(win, MSGLEVEL_CRAP, PSYCTXT__ECHO, msg);
+            break;
+        case PSYC_MC_ERROR:
+            printformat_window(win, MSGLEVEL_SNOTES, PSYCTXT__ERROR, msg);
+            break;
+        case PSYC_MC_FAILURE:
+            printformat_window(win, MSGLEVEL_SNOTES, PSYCTXT__FAILURE, msg);
+            break;
+        case PSYC_MC_INFO:
+            printformat_window(win, MSGLEVEL_CRAP, PSYCTXT__INFO, msg);
+            break;
         case PSYC_MC_MESSAGE:
-            printformat_window(window_item_window(channel), MSGLEVEL_PUBLIC,
-                               from_me ? PSYCTXT__MESSAGE_ECHO : PSYCTXT__MESSAGE,
-                               nick, msg, mode);
-            break;
-        case PSYC_MC_MESSAGE_ACTION:
-            printformat_window(window_item_window(channel),
-                               MSGLEVEL_PUBLIC | MSGLEVEL_ACTIONS,
-                               from_me ? PSYCTXT__MESSAGE_ECHO_ACTION
-                                       : PSYCTXT__MESSAGE_ACTION,
-                               nick, msg, mode);
-            break;
-        case PSYC_MC_ECHO_CONTEXT_ENTER:
-            nrec = nicklist_find_mask(CHANNEL(channel), server->client->uni.full.data);
-            if (!nrec) {
-                nrec = g_new0(NICK_REC, 1);
-                nrec->nick = g_strdup(server->nick);
-                nrec->host = g_strdup(server->client->uni.full.data);
-                nicklist_insert(CHANNEL(channel), nrec);
-                nicklist_set_own(CHANNEL(channel), nrec);
+            switch (mc) {
+            case PSYC_MC_MESSAGE_ACTION:
+                if (ownsrc)
+                    printformat_window(win,
+                                       MSGLEVEL_PUBLIC | MSGLEVEL_ACTIONS |
+                                       MSGLEVEL_NOHILIGHT | MSGLEVEL_NO_ACT,
+                                       PSYCTXT__MESSAGE_ECHO_ACTION,
+                                       server->nick, msg, mode);
+                else
+                    printformat_window(win,
+                                       MSGLEVEL_PUBLIC | MSGLEVEL_ACTIONS,
+                                       PSYCTXT__MESSAGE_ACTION,
+                                       srcnick, msg, mode);
+                break;
+            default:
+                if (ownsrc)
+                    printformat_window(win, MSGLEVEL_PUBLIC |
+                                       MSGLEVEL_NOHILIGHT | MSGLEVEL_NO_ACT,
+                                       PSYCTXT__MESSAGE_ECHO, server->nick, msg, mode);
+                else
+                    printformat_window(win, MSGLEVEL_PUBLIC,
+                                       PSYCTXT__MESSAGE, srcnick, msg, mode);
+                break;
             }
             break;
-        case PSYC_MC_ECHO_CONTEXT_LEAVE:
-            signal_emit(method, 5, server, msg, nick, uni, channel->name);
-            channel_destroy(CHANNEL(channel));
-            methodlen = 0;
+        case PSYC_MC_NOTICE:
+            printformat_window(win, MSGLEVEL_NOTICES, PSYCTXT__NOTICE, msg);
             break;
-        case PSYC_MC_NOTICE_CONTEXT_ENTER:
-            nrec = nicklist_find_mask(CHANNEL(channel), uni);
-            if (nrec)
-                break;
-            nrec = g_new0(NICK_REC, 1);
-            nrec->nick = g_strdup(nick ? nick : uni);
-            nrec->host = g_strdup(uni);
-            nicklist_insert(CHANNEL(channel), nrec);
+        case PSYC_MC_REQUEST:
+            printformat_window(win, MSGLEVEL_INVITES | MSGLEVEL_HILIGHT,
+                               PSYCTXT__WARNING, msg);
             break;
-        case PSYC_MC_NOTICE_CONTEXT_LEAVE:
-            nrec = nicklist_find_mask(CHANNEL(channel), uni);
-            if (nrec)
-                nicklist_remove(CHANNEL(channel), nrec);
+        case PSYC_MC_STATUS:
+            printformat_window(win, MSGLEVEL_CRAP, PSYCTXT__STATUS, msg);
+            break;
+        case PSYC_MC_WARNING:
+            printformat_window(win, MSGLEVEL_CRAP, PSYCTXT__WARNING, msg);
             break;
         default:
+            printformat_window(win, MSGLEVEL_CRAP, PSYCTXT_DEFAULT, msg);
             break;
         }
 
@@ -146,36 +218,7 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel,
     }
 
     if (methodlen > 0)
-        signal_emit(method, 5, server, msg, nick, uni, channel->name);
-}
-
-void
-psyc_channel_nick_change (PSYC_SERVER_REC *server, char *ctx, size_t ctxlen,
-                          char *uni, size_t unilen, char *nick, size_t nicklen)
-{
-    LOG_DEBUG(">> psyc_channel_nick_change()\n");
-
-}
-
-void
-psyc_channel_descr_change (PSYC_SERVER_REC *server, char *ctx, size_t ctxlen,
-                           char *topic, size_t topiclen)
-{
-    LOG_DEBUG(">> psyc_channel_descr_change(%.*s, %.*s)\n",
-              (int)ctxlen, ctx, (int)topiclen, topic);
-
-    if (!server || !IS_PSYC_SERVER(server))
-        return;
-
-    PSYC_CHANNEL_REC *channel = psyc_channel_find(server, ctx);
-    if (!channel)
-        return;
-
-    channel->topic = g_strdup(topic);
-    //channel->topic_by = ;
-    //channel->topic_time = ;
-
-    signal_emit("channel topic changed", 1, channel);
+        signal_emit(method, 5, server, msg, srcnick, srcuni, channel->name);
 }
 
 // JOIN <channel>
@@ -286,34 +329,6 @@ cmd_me (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 
     psyc_client_message_action(server->client, channel->name, strlen(channel->name),
                                msg, strlen(msg));
-}
-
-// NICK <new nick>
-static void
-cmd_nick (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
-{
-    void *free_arg;
-    char *nick;
-
-    g_return_if_fail(data != NULL);
-    CMD_PSYC_SERVER(server);
-    if (channel != NULL && !IS_PSYC_CHANNEL(channel))
-        return;
-    if (!cmd_get_params(data, &free_arg, 1, &nick))
-        return;
-
-    char *ctx = NULL;
-    size_t ctxlen = 0;
-    if (channel) {
-        ctx = channel->name;
-        ctxlen = strlen(channel->name);
-    }
-
-    psyc_client_state_set(server->client, ctx, ctxlen,
-                          '=', PSYC_C2ARG("_nick"),
-                          nick, strlen(nick));
-
-    cmd_params_free(free_arg);
 }
 
 // TOPIC <new topic>
@@ -533,7 +548,6 @@ void
 psyc_channels_init ()
 {
     command_bind_psyc("me", NULL, (SIGNAL_FUNC) cmd_me);
-    command_bind_psyc("nick", NULL, (SIGNAL_FUNC) cmd_nick);
     command_bind_psyc("topic", NULL, (SIGNAL_FUNC) cmd_topic);
     command_bind_psyc("part", NULL, (SIGNAL_FUNC) cmd_part);
     command_bind_psyc("member", NULL, (SIGNAL_FUNC) cmd_member);
@@ -554,7 +568,6 @@ void
 psyc_channels_deinit ()
 {
     command_unbind("me", (SIGNAL_FUNC) cmd_me);
-    command_unbind("nick", (SIGNAL_FUNC) cmd_nick);
     command_unbind("topic", (SIGNAL_FUNC) cmd_topic);
     command_unbind("part", (SIGNAL_FUNC) cmd_part);
     command_unbind("member", (SIGNAL_FUNC) cmd_member);

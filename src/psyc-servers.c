@@ -109,70 +109,103 @@ transmit (PSYC_SERVER_REC *server, const char *data, size_t len)
 }
 
 static void
-linked (PSYC_SERVER_REC *server, Packet *p)
+alias_add (PSYC_SERVER_REC *server, uint8_t own,
+           const char *uni, size_t unilen,
+           const char *nick, size_t nicklen)
 {
-    LOG_DEBUG(">> psyc_server:linked()\n");
+    LOG_DEBUG(">> psyc_server:alias_add(%.*s, %.*s, %d)\n",
+              (int)unilen, uni, (int)nicklen, nick, own);
 
-    server->connected = TRUE;
-    server->connect_time = time(NULL);
+    if (own) {
+        g_free(server->nick);
+        server->nick = g_strdup(nick);
+        signal_emit("server nick changed", 1, server);
+    } else {
+        /// @todo change nick in all channels
+    }
 }
 
 static void
-unlinked (PSYC_SERVER_REC *server, Packet *p)
+alias_remove (PSYC_SERVER_REC *server, uint8_t own,
+              const char *uni, size_t unilen,
+              const char *nick, size_t nicklen)
 {
-    LOG_DEBUG(">> psyc_server:linked()\n");
+    LOG_DEBUG(">> psyc_server:alias_remove(%.*s, %.*s, %d)\n",
+              (int)unilen, uni, (int)nicklen, nick, own);
 
-    server_disconnect((SERVER_REC*)server);
+    if (own) {
+        g_free(server->nick);
+        server->nick = g_strdup(uni);
+        signal_emit("server nick changed", 1, server);
+    } else {
+        /// @todo change nick in all channels
+    }
 }
 
 static void
-own_nick_change (PSYC_SERVER_REC *server, char *nick, size_t nicklen)
+alias_change (PSYC_SERVER_REC *server, uint8_t own,
+              const char *uni, size_t unilen,
+              const char *oldnick, size_t oldnicklen,
+              const char *newnick, size_t newnicklen)
 {
-    LOG_DEBUG(">> psyc_server:own_nick_change(%.*s)\n", (int)nicklen, nick);
+    LOG_DEBUG(">> psyc_server:alias_change(%.*s, %.*s, %d)\n",
+              (int)oldnicklen, oldnick, (int)newnicklen, newnick, own);
 
-    g_free(server->nick);
-    server->nick = g_strdup(nick);
-    signal_emit("server nick changed", 1, server);
+    if (own) {
+        g_free(server->nick);
+        server->nick = g_strdup(newnick);
+        signal_emit("server nick changed", 1, server);
+    } else {
+
+    }
 }
 
 static void
-nick_change (PSYC_SERVER_REC *server, char *uni, size_t unilen,
-             char *nick, size_t nicklen)
-{
-    LOG_DEBUG(">> psyc_server:nick_change(%.*s, %.*s)\n",
-              (int)unilen, uni, (int)nicklen, nick);
-
-}
-
-static void
-receive (PSYC_SERVER_REC *server, Packet *p, uint8_t from_me,
+receive (PSYC_SERVER_REC *server, Packet *p,
+         uint8_t state_reset, uint8_t ownsrc, uint8_t ownctx,
          PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
-         char *ctx, size_t ctxlen, char *ctxname, size_t ctxnamelen,
-         char *uni, size_t unilen, char *nick, size_t nicklen,
-         char *method, size_t methodlen, char *data, size_t datalen)
+         const char *ctx, size_t ctxlen,
+         const char *ctxname, size_t ctxnamelen,
+         const char *srcuni, size_t srcunilen,
+         const char *srcnick, size_t srcnicklen,
+         const char *method, size_t methodlen,
+         const char *data, size_t datalen)
 {
     LOG_DEBUG(">> psyc_server:receive(method=%.*s, mc=%u, mc_family=%u, mc_flag=%u, "
+              "state_reset=%d, ownsrc=%d, ownctx=%d, "
               "ctx=%.*s, ctxname=%.*s, uni=%.*s, nick=%.*s, data=%.*s)\n",
               (int)S2ARG2(p->method), mc, mc_family, mc_flag,
+              state_reset, ownsrc, ownctx,
               (int)ctxlen, ctx, (int)ctxnamelen, ctxname,
-              (int)unilen, uni, (int)nicklen, nick,
+              (int)srcunilen, srcuni, (int)srcnicklen, srcnick,
               (int)datalen, data);
 
     if (!server || !IS_PSYC_SERVER(server))
         return;
 
-    PsycString *u = &server->client->uni.full;
-    if (ctxlen == u->length && memcmp(ctx, S2ARG(*u)) == 0)
-        ctxlen = 0;
+    if (ownctx) {
+        switch (mc) {
+        case PSYC_MC_NOTICE_LINK:
+            server->connected = TRUE;
+            server->connect_time = time(NULL);
+            break;
+        case PSYC_MC_NOTICE_UNLINK:
+            server_disconnect((SERVER_REC*)server);
+            break;
+        default:
+            break;
+        }
+    }
 
-    if (ctxlen > 0) {
+    if (ctxnamelen > 0) {
         PSYC_CHANNEL_REC *channel = psyc_channel_find(server, ctx);
         if (!channel)
             channel = psyc_channel_create(server, ctx, ctxname, 0);
 
-        psyc_channel_receive(server, channel, p, from_me,
+        psyc_channel_receive(server, channel, p,
+                             state_reset, ownsrc, ownctx,
                              mc, mc_family, mc_flag,
-                             uni, unilen, nick, nicklen,
+                             srcuni, srcunilen, srcnick, srcnicklen,
                              method, methodlen, data, datalen);
     } else {
         if (settings_get_bool("psyc_debug"))
@@ -198,7 +231,7 @@ receive (PSYC_SERVER_REC *server, Packet *p, uint8_t from_me,
             }
         }
         if (methodlen > 0)
-            signal_emit(method, 5, server, data, nick, uni, ctx);
+            signal_emit(method, 5, server, data, srcnick, srcuni, ctx);
     }
 }
 
@@ -225,12 +258,9 @@ receive_raw (PSYC_SERVER_REC *server)
 
 PsycClientEvents client_events = {
     .receive = (PsycClientReceive) receive,
-    .linked = (PsycClientLink) linked,
-    .unlinked = (PsycClientLink) unlinked,
-    .own_nick_change = (PsycClientOwnNickChange) own_nick_change,
-    .nick_change = (PsycClientNickChange) nick_change,
-    .local_nick_change = (PsycClientLocalNickChange) psyc_channel_nick_change,
-    .descr_change = (PsycClientNickChange) psyc_channel_descr_change,
+    .alias_add = (PsycClientAliasAdd) alias_add,
+    .alias_remove = (PsycClientAliasRemove) alias_remove,
+    .alias_change = (PsycClientAliasChange) alias_change,
 };
 
 static void
