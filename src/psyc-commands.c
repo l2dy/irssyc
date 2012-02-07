@@ -77,22 +77,22 @@ cmd_alias_add (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *chan
     cmd_params_free(free_arg);
 }
 
-// PSYC ALIAS REMOVE <nick>
+// PSYC ALIAS REMOVE <nick> | <uniform>
 static void
 cmd_alias_remove (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
     void *free_arg;
-    char *nick;
+    char *uni;
 
-    if (!cmd_get_params(data, &free_arg, 1, &nick))
+    if (!cmd_get_params(data, &free_arg, 1, &uni))
         return;
 
-    size_t nicklen = strlen(nick);
+    size_t unilen = strlen(uni);
 
-    if (!nicklen)
+    if (!unilen)
         return;
 
-    psyc_client_alias_remove(server->client, nick, nicklen);
+    psyc_client_alias_remove(server->client, uni, unilen);
 
     cmd_params_free(free_arg);
 }

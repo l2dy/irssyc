@@ -85,6 +85,7 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet
 
     switch (mc) {
     case PSYC_MC_ECHO_CONTEXT_ENTER:
+#if 0
         nrec = nicklist_find_mask(CHANNEL(channel), server->client->uni.full.data);
         if (!nrec) {
             nrec = g_new0(NICK_REC, 1);
@@ -93,6 +94,7 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet
             nicklist_insert(CHANNEL(channel), nrec);
             nicklist_set_own(CHANNEL(channel), nrec);
         }
+#endif
         break;
     case PSYC_MC_ECHO_CONTEXT_LEAVE:
         signal_emit(method, 5, server, msg, srcnick, srcuni, channel->name);
@@ -344,8 +346,7 @@ cmd_topic (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
     if (channel != NULL && !IS_PSYC_CHANNEL(channel))
         return;
 
-    if (!cmd_get_params(data, &free_arg, 1 | PARAM_FLAG_OPTIONS | PARAM_FLAG_GETREST,
-                        "topic", &optlist, &topic))
+    if (!cmd_get_params(data, &free_arg, 1 | PARAM_FLAG_GETREST, &optlist, &topic))
         return;
 
     if (*topic == 0)
@@ -471,7 +472,7 @@ cmd_state_set (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *chan
     void *free_arg;
     char *name, *value;
 
-    if (!cmd_get_params(data, &free_arg, 2, &name, &value))
+    if (!cmd_get_params(data, &free_arg, 2 | PARAM_FLAG_GETREST, &name, &value))
         return;
 
     size_t namelen = strlen(name);
