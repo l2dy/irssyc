@@ -84,36 +84,29 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet
                            PSYCTXT_PACKET, p->content.data);
 
     switch (mc) {
-    case PSYC_MC_ECHO_CONTEXT_ENTER:
-#if 0
-        nrec = nicklist_find_mask(CHANNEL(channel), server->client->uni.full.data);
-        if (!nrec) {
-            nrec = g_new0(NICK_REC, 1);
-            nrec->nick = g_strdup(server->nick);
-            nrec->host = g_strdup(server->client->uni.full.data);
-            nicklist_insert(CHANNEL(channel), nrec);
-            nicklist_set_own(CHANNEL(channel), nrec);
-        }
-#endif
-        break;
-    case PSYC_MC_ECHO_CONTEXT_LEAVE:
-        signal_emit(method, 5, server, msg, srcnick, srcuni, channel->name);
-        channel_destroy(CHANNEL(channel));
-        methodlen = 0;
-        break;
     case PSYC_MC_NOTICE_CONTEXT_ENTER:
         nrec = nicklist_find_mask(CHANNEL(channel), srcuni);
-        if (nrec)
+        if (nrec || !srcunilen)
             break;
         nrec = g_new0(NICK_REC, 1);
         nrec->nick = g_strdup(srcnick ? srcnick : srcuni);
         nrec->host = g_strdup(srcuni);
         nicklist_insert(CHANNEL(channel), nrec);
         break;
+    case PSYC_MC_ECHO_CONTEXT_ENTER:
+        break;
     case PSYC_MC_NOTICE_CONTEXT_LEAVE:
-        nrec = nicklist_find_mask(CHANNEL(channel), srcuni);
-        if (nrec)
-            nicklist_remove(CHANNEL(channel), nrec);
+	if (srcunilen) {
+	    nrec = nicklist_find_mask(CHANNEL(channel), srcuni);
+	    if (nrec)
+		nicklist_remove(CHANNEL(channel), nrec);
+	    break;
+	}
+	// fall thru
+    case PSYC_MC_ECHO_CONTEXT_LEAVE:
+        signal_emit(method, 5, server, msg, srcnick, srcuni, channel->name);
+        channel_destroy(CHANNEL(channel));
+        methodlen = 0;
         break;
     default:
         break;
@@ -286,7 +279,8 @@ cmd_member_add (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *cha
     if (!cmd_get_params(data, &free_arg, 1, &uni))
         return;
 
-    psyc_client_member_add(server->client, uni, strlen(uni));
+    psyc_client_member_add(server->client, channel->name, strlen(channel->name),
+			   uni, strlen(uni));
 }
 
 // MEMBER REMOVE <uniform|nick>
@@ -303,7 +297,8 @@ cmd_member_remove (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *
     if (!cmd_get_params(data, &free_arg, 1, &uni))
         return;
 
-    psyc_client_member_remove(server->client, uni, strlen(uni));
+    psyc_client_member_remove(server->client, channel->name, strlen(channel->name),
+			      uni, strlen(uni));
 }
 
 void
@@ -346,7 +341,8 @@ cmd_topic (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
     if (channel != NULL && !IS_PSYC_CHANNEL(channel))
         return;
 
-    if (!cmd_get_params(data, &free_arg, 1 | PARAM_FLAG_GETREST, &optlist, &topic))
+    if (!cmd_get_params(data, &free_arg, 1 | PARAM_FLAG_OPTIONS | PARAM_FLAG_GETREST,
+			"topic", &optlist, &topic))
         return;
 
     if (*topic == 0)

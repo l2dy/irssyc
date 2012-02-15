@@ -32,6 +32,17 @@
 #include <psyc/client.h>
 #include <psyc/client/commands.h>
 
+// QUERY
+QUERY_REC *
+psyc_command_query_create (const char *server_tag, const char *uni, int automatic)
+{
+    PSYC_SERVER_REC *server = server_find_tag(server_tag);
+    if (server && IS_PSYC_SERVER(server))
+	psyc_client_query(server->client, uni, strlen(uni));
+
+    return NULL;
+}
+
 // PSYC
 static void
 cmd_psyc (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)

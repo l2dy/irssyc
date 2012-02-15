@@ -50,6 +50,9 @@ psyc_commands_init ();
 void
 psyc_commands_deinit ();
 
+QUERY_REC *
+psyc_command_query_create (const char *server_tag, const char *uni, int automatic);
+
 void
 send_message (PSYC_SERVER_REC *server, const char *target,
               const char *msg, int target_type);

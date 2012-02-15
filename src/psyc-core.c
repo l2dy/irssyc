@@ -61,12 +61,6 @@ destroy_server_connect (SERVER_CONNECT_REC *conn)
 
 }
 
-static QUERY_REC *
-query_create (const char *server_tag, const char *nick, int automatic)
-{
-    return NULL;
-}
-
 void
 psyc_core_init ()
 {
@@ -88,7 +82,7 @@ psyc_core_init ()
     rec->server_init_connect = psyc_server_init_connect;
     rec->server_connect = psyc_server_connect;
     rec->channel_create = psyc_channel_create;
-    rec->query_create = query_create;
+    rec->query_create = psyc_command_query_create;
 
     chat_protocol_register(rec);
     g_free(rec);
