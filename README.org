@@ -6,10 +6,16 @@ Put libpsyc_core.so in =~/.irssi/lib/= or =/usr/lib/irssi/modules/=
 
 : echo load psyc >> ~/.irssi/startup
 
-Start irssi and type the following commands:
-: /network add psycd
+Get your peer ID with:
+: gnunet-peerinfo -s
+
+Start irssi and type the following commands:c
+: /network add -nick psyc://<peerID>:g/ psycd
 : /server add -network psycd localhost 4404
 : /quit
 
 Edit ~/.irssi/config and change the network type to PSYC:
-: psycd = { type = "PSYC"; };
+: psycd = {
+:   type = "PSYC";
+:   nick = "psyc://<peerID>:g/"
+: };
