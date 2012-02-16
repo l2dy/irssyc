@@ -17,5 +17,5 @@ Start irssi and type the following commands:c
 Edit ~/.irssi/config and change the network type to PSYC:
 : psycd = {
 :   type = "PSYC";
-:   nick = "psyc://<peerID>:g/"
+:   nick = "psyc://<peerID>:g/";
 : };
