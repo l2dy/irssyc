@@ -2,7 +2,7 @@
 
 * Configuration
 
-Put libpsyc_core.so in =~/.irssi/lib/= or =/usr/lib/irssi/modules/=
+Put libpsyc_core.so in =~/.irssi/modules/= or =/usr/lib/irssi/modules/=
 
 : echo load psyc >> ~/.irssi/startup
 
