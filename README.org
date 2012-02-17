@@ -1,13 +1,40 @@
 #+TITLE: Irssyc README
 
+* Compile
+
+: apt-get install libglib2.0-dev irssi-dev
+: cmake -DCMAKE_BUILD_TYPE=Debug .
+: make
+
+In CMakeLists.txt you may have to fix
+    set(IRSSI_DIR "${CMAKE_SYSTEM_INCLUDE_PATH}/irssi")
+replace it with:
+    set(IRSSI_DIR "/usr/include/irssi")
+or whatever that directory ended up to be.
+
 * Configuration
 
-Put libpsyc_core.so in =~/.irssi/lib/= or =/usr/lib/irssi/modules/=
+Put libpsyc_core.so in =~/.irssi/modules/= or =/usr/lib/irssi/modules/=
 
+: cp lib/libpsyc_core.so ~/.irssi/modules/
+
+Run this command to find out your own node id:
+: gnunet-peerinfo -s
+
+Extract the id and replace it below where it says <insert your node id>.
 Start irssi and type the following commands:
+
 : /network add psycd
+: /network add -nick psyc://<insert your node id>/ psycd
 : /server add -network psycd localhost 4404
 : /quit
 
 Edit ~/.irssi/config and change the network type to PSYC:
 : psycd = { type = "PSYC"; };
+
+Create a file ~/.irssi/startup and make it contain the following two lines:
+: load psyc
+: connect psycd
+
+When you start irssi again, it should link to your psycd identity.
+
