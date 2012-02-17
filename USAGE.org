@@ -1,0 +1,83 @@
+: /psyc hello
+
+outputs your hello string. So you can send that string to your first new
+friends on secushare. To add a person to your node, issue:
+
+: /psyc hello <hello-string>
+
+This will output that person's peer ID. You can now confirm this peer ID
+by reading it aloud over the telephone. We don't have shared secrets yet,
+so that's the safety measure for now.
+
+If you want to add lynX's server, try throwing this hello into your client:
+
+: 1W30G00000G06400cA4vXLxB7LLamtBE7BOgUzfzcgTJdie_i_F0ujU0_vnesUz3ngAhTnho6XBVAZtDSNy4al0tesv8tB9TzqeeJ1UNtSgoRLs2ftVwaM27sa7I__CsQ_xcqAEIh7Ggr1fSdAK3SHmI1Y=yf6St1hvk104b0dgZv8O=ZZjGrAeymQaROCv4IXC3aemj6UVSxd74eWJfwwxH1aP4=ZLwcs1Nvi4UEuzqaTymWgcs7IVvY85apiwnuzh1v9aYiBKZ2S8Zbh=nxpWYazLVQPRJRSOI7S_kxc4SSbslnz7Ldx8IYzZ3QW7_3N06i5kp7LHVS15jeR1rAAawigCwehkMAs4eN4G0000TZ1700O0004GDB_dJQphYQ5F2cK7Pm10060001KpY=vasygeMnZW9
+
+It should show you my peer ID as follows:
+
+: psyc://HC5JD1M1CP8OKRK4VBPF4KQIUNUS1IVUV4INU2KJA8OK9QT0CGJAUH05DVK8VD9NT4A85TMPL2SABTT13ICABEM0TQSNRIGMNR6AC9G:g/
+
+You can give us nicer names, like this:
+
+: /psyc alias add lynX psyc://HC5JD1M1CP8OKRK4VBPF4KQIUNUS1IVUV4INU2KJA8OK9QT0CGJAUH05DVK8VD9NT4A85TMPL2SABTT13ICABEM0TQSNRIGMNR6AC9G:g/
+: /psyc alias add tg psyc://I0GCD93UHB7KF60SMOJBHA48PBA2P99BAD4LJ9UC67A0KFHL7RBD9QFHT6QPVC1FHAL5UF6PUQKPNP2C7JID0R0H7NF2VOPL29G:g/
+: /psyc alias add codethief psyc://NK9BLOSDC596EP0FMA6EO8TE6TA6G5LEBBI5KOB3B1P2D3O5K385JV9RBUJDG67NO7RV1HPQ7J258KFI0TGGE8PPEIP0SSD4K6VKLM0:g/
+
+and set your own nickname, too:
+
+: /nick <nickname>
+
+* 1-1 Messaging
+
+In order to do messaging with a person, you need to first subscribe her.
+This is currently done very rudely by entering her:
+
+: /j psyc://HC5JD1M1CP8OKRK4VBPF4KQIUNUS1IVUV4INU2KJA8OK9QT0CGJAUH05DVK8VD9NT4A85TMPL2SABTT13ICABEM0TQSNRIGMNR6AC9G:g/
+
+Then you can query her and have a one-to-one conversation.
+
+: /query tg
+
+Query technically generates a random subchannel of your entity, so the
+person needs to be a subscriber of you. That's why she has to enter you.
+
+* Owned Channels
+
+You can give your channels a name and control who else is inside:
+
+: /j #life
+: /member add tg
+: /member add codethief
+: /topic This is my channel of life, the universe and everything.
+: /names
+
+* State Operations
+
+To play around with the distributed state of each channel, use
+
+: /state
+: /state set _variable <value>
+: /state set +_variable <value>
+: /state set -_variable <value>
+: /state resync
+: /state reset
+
+You can even manipulate _lists and _dicts according to tg's new
+type specification.
+
+* Multi-party Chatrooms
+
+To join my first chatroom on secushare, type this:
+
+: /j psyc://HC5JD1M1CP8OKRK4VBPF4KQIUNUS1IVUV4INU2KJA8OK9QT0CGJAUH05DVK8VD9NT4A85TMPL2SABTT13ICABEM0TQSNRIGMNR6AC9G:g/@foo
+
+And whoops, we can have an encrypted multi-party chat on my node.
+Yeeha.
+
+* Troubleshooting
+
+: /set psycd_debug on
+
+If anything of this stuff doesn't work, you may be impeded by NAT.
+We haven't activated gnunet's NAT traversal module. We will.
+
