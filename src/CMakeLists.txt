@@ -5,7 +5,10 @@ add_library(psyc_core SHARED
   psyc-commands.c
   psyc-formats.c
 )
+
 target_link_libraries(psyc_core
-  -lpsycclient -lpsyccommon -lpsycutil -lpsyc
+  -lpsyc -lpsycclient -lpsyccommon -lpsycutil
   ${GLIB2_LIBRARIES}
 )
+
+install(TARGETS psyc_core DESTINATION ${IRSSI_MODULES_DIR})
