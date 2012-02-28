@@ -2,15 +2,16 @@
 
 * Prerequisites
 
+: apt-get install libglib2.0-dev irssi-dev
+
+or equivalent packages on your respective Unix distribution.
+
 - libpsyc
   : git clone git://git.tgbit.net/libpsyc
 - libpsycclient from psycd
   : git clone git://git.tgbit.net/psycd
-- irssi headers
 
-** Debian/ubuntu packages
-
-: apt-get install libglib2.0-dev irssi-dev
+Follow the respective INSTALL documents.
 
 * Compile and install
 
@@ -52,5 +53,6 @@ Create a file ~/.irssi/startup like this:
 : echo "load psyc" >> ~/.irssi/startup
 
 When you start irssi again, it should link to your psycd identity.
+
 To avoid the debug messages, send them to a file:
 : irssi 2>irssi.log
