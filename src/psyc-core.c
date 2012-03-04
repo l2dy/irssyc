@@ -66,6 +66,14 @@ psyc_core_init ()
 {
     CHAT_PROTOCOL_REC *rec;
 
+    settings_add_bool("psyc", "psyc_debug", FALSE);
+    settings_add_str("psyc", "psyc_log_level", "WARNING");
+
+#ifdef DEBUG
+    if (settings_get_bool("psyc_debug"))
+	GNUNET_log_setup("irssyc", settings_get_str("psyc_log_level"), NULL);
+#endif
+
     rec = g_new0(CHAT_PROTOCOL_REC, 1);
     rec->name = "PSYC";
     rec->fullname = "PSYC, Protocol for Synchronous Conferencing";
@@ -92,8 +100,6 @@ psyc_core_init ()
     psyc_servers_init();
     psyc_channels_init();
     psyc_commands_init();
-
-    settings_add_bool("psyc", "psyc_debug", FALSE);
 
     module_register("psyc", "core");
 }

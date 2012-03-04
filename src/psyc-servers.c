@@ -40,7 +40,7 @@
 SERVER_REC *
 psyc_server_init_connect (SERVER_CONNECT_REC *conn)
 {
-    LOG_DEBUG(">> psyc_server_init_connect()\n");
+    LOG_INFO(">> psyc_server_init_connect()\n");
 
     PSYC_SERVER_REC *server;
 
@@ -72,7 +72,7 @@ psyc_server_connect (SERVER_REC *server)
 static int
 is_channel (SERVER_REC *server, const char *data)
 {
-    LOG_DEBUG(">> is_channel(%s)\n", data);
+    LOG_INFO(">> is_channel(%s)\n", data);
 
     return TRUE;
 }
@@ -80,7 +80,7 @@ is_channel (SERVER_REC *server, const char *data)
 static int
 is_nick_flag (char flag)
 {
-    LOG_DEBUG(">> is_nick_flag(%c)\n", flag);
+    LOG_INFO(">> is_nick_flag(%c)\n", flag);
 
     return FALSE;
 }
@@ -94,14 +94,14 @@ get_nick_flags ()
 static PsycRC
 transmit (PSYC_SERVER_REC *server, const char *data, size_t len)
 {
-    LOG_DEBUG(">> psyc_server:transmit(%lu)\n", len);
+    LOG_INFO(">> psyc_server:transmit(%lu)\n", len);
 
     if (!server || !IS_PSYC_SERVER(server)
         || server->disconnected || server->connection_lost || !server->handle)
         return PSYC_ERROR;
 
     if (net_sendbuffer_send(server->handle, data, len) == -1) {
-        LOG_DEBUG("transmit error: %lu\n", len);
+        LOG_INFO("transmit error: %lu\n", len);
         server->connection_lost = TRUE;
     }
 
@@ -109,11 +109,24 @@ transmit (PSYC_SERVER_REC *server, const char *data, size_t len)
 }
 
 static void
+linked (PSYC_SERVER_REC *server)
+{
+    server->connected = TRUE;
+    server->connect_time = time(NULL);
+}
+
+static void
+unlinked (PSYC_SERVER_REC *server)
+{
+    server_disconnect((SERVER_REC*)server);
+}
+
+static void
 alias_add (PSYC_SERVER_REC *server, uint8_t own,
            const char *uni, size_t unilen,
            const char *nick, size_t nicklen)
 {
-    LOG_DEBUG(">> psyc_server:alias_add(%.*s, %.*s, %d)\n",
+    LOG_INFO(">> psyc_server:alias_add(%.*s, %.*s, %d)\n",
               (int)unilen, uni, (int)nicklen, nick, own);
 
     if (own) {
@@ -128,9 +141,10 @@ alias_add (PSYC_SERVER_REC *server, uint8_t own,
 static void
 alias_remove (PSYC_SERVER_REC *server, uint8_t own,
               const char *uni, size_t unilen,
-              const char *nick, size_t nicklen)
+              const char *nick, size_t nicklen,
+	      const char *newnick, size_t newnicklen)
 {
-    LOG_DEBUG(">> psyc_server:alias_remove(%.*s, %.*s, %d)\n",
+    LOG_INFO(">> psyc_server:alias_remove(%.*s, %.*s, %d)\n",
               (int)unilen, uni, (int)nicklen, nick, own);
 
     if (own) {
@@ -148,7 +162,7 @@ alias_change (PSYC_SERVER_REC *server, uint8_t own,
               const char *oldnick, size_t oldnicklen,
               const char *newnick, size_t newnicklen)
 {
-    LOG_DEBUG(">> psyc_server:alias_change(%.*s, %.*s, %d)\n",
+    LOG_INFO(">> psyc_server:alias_change(%.*s, %.*s, %d)\n",
               (int)oldnicklen, oldnick, (int)newnicklen, newnick, own);
 
     if (own) {
@@ -161,51 +175,37 @@ alias_change (PSYC_SERVER_REC *server, uint8_t own,
 }
 
 static void
-receive (PSYC_SERVER_REC *server, Packet *p,
-         uint8_t state_reset, uint8_t ownsrc, uint8_t ownctx,
-         PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
-         const char *ctx, size_t ctxlen,
+receive (PSYC_SERVER_REC *server, Packet *p, uint8_t state_reset,
+	 PsycUniform *ctx, uint8_t ownctx,
+         const char *ctxuni, size_t ctxunilen,
          const char *ctxname, size_t ctxnamelen,
+	 PsycUniform *src, uint8_t ownsrc,
          const char *srcuni, size_t srcunilen,
          const char *srcnick, size_t srcnicklen,
+         PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
          const char *method, size_t methodlen,
          const char *data, size_t datalen)
 {
-    LOG_DEBUG(">> psyc_server:receive(method=%.*s, mc=%u, mc_family=%u, mc_flag=%u, "
+    LOG_INFO(">> psyc_server:receive(method=%.*s, mc=%u, mc_family=%u, mc_flag=%u, "
               "state_reset=%d, ownsrc=%d, ownctx=%d, "
-              "ctx=%.*s, ctxname=%.*s, uni=%.*s, nick=%.*s, data=%.*s)\n",
+              "ctxuni=%.*s, ctxname=%.*s, uni=%.*s, nick=%.*s, data=%.*s)\n",
               (int)S2ARG2(p->method), mc, mc_family, mc_flag,
               state_reset, ownsrc, ownctx,
-              (int)ctxlen, ctx, (int)ctxnamelen, ctxname,
+              (int)ctxunilen, ctxuni, (int)ctxnamelen, ctxname,
               (int)srcunilen, srcuni, (int)srcnicklen, srcnick,
               (int)datalen, data);
 
     if (!server || !IS_PSYC_SERVER(server))
         return;
 
-    if (ownctx) {
-        switch (mc) {
-        case PSYC_MC_NOTICE_LINK:
-            server->connected = TRUE;
-            server->connect_time = time(NULL);
-            break;
-        case PSYC_MC_NOTICE_UNLINK:
-            server_disconnect((SERVER_REC*)server);
-            break;
-        default:
-            break;
-        }
-    }
-
     if (ctxnamelen > 0) {
-        PSYC_CHANNEL_REC *channel = psyc_channel_find(server, ctx);
+        PSYC_CHANNEL_REC *channel = psyc_channel_find(server, ctxuni);
         if (!channel)
-            channel = psyc_channel_create(server, ctx, ctxname, 0);
+            channel = psyc_channel_create(server, ctxuni, ctxname, 0);
 
-        psyc_channel_receive(server, channel, p,
-                             state_reset, ownsrc, ownctx,
-                             mc, mc_family, mc_flag,
-                             srcuni, srcunilen, srcnick, srcnicklen,
+        psyc_channel_receive(server, channel, p, state_reset,
+                             src, ownsrc, srcuni, srcunilen, srcnick, srcnicklen,
+			     mc, mc_family, mc_flag,
                              method, methodlen, data, datalen);
     } else {
         if (settings_get_bool("psyc_debug"))
@@ -238,19 +238,19 @@ receive (PSYC_SERVER_REC *server, Packet *p,
 static void
 receive_raw (PSYC_SERVER_REC *server)
 {
-    LOG_DEBUG(">> psyc_server:receive_raw()\n");
+    LOG_INFO(">> psyc_server:receive_raw()\n");
 
     if (!server || !IS_PSYC_SERVER(server))
         return;
 
     char buf[RECVBUFLEN];
     int len = net_receive(net_sendbuffer_handle(server->handle), buf, RECVBUFLEN);
-    LOG_DEBUG("len: %d\n", len);
+    LOG_INFO("len: %d\n", len);
 
     if (len > 0) {
         psyc_client_receive(server->client, buf, len);
     } else if (len < 0) {
-        LOG_DEBUG("receive error: %d\n", len);
+        LOG_INFO("receive error: %d\n", len);
         server->connection_lost = TRUE;
         server_disconnect((SERVER_REC*)server);
     }
@@ -258,6 +258,8 @@ receive_raw (PSYC_SERVER_REC *server)
 
 PsycClientEvents client_events = {
     .receive = (PsycClientReceive) receive,
+    .link = (PsycClientLink) linked,
+    .unlink = (PsycClientUnlink) unlinked,
     .alias_add = (PsycClientAliasAdd) alias_add,
     .alias_remove = (PsycClientAliasRemove) alias_remove,
     .alias_change = (PsycClientAliasChange) alias_change,
@@ -266,7 +268,7 @@ PsycClientEvents client_events = {
 static void
 sig_server_connected (PSYC_SERVER_REC *server)
 {
-    LOG_DEBUG(">> psyc_server:sig_server_connected()\n");
+    LOG_INFO(">> psyc_server:sig_server_connected()\n");
 
     if (!server || !IS_PSYC_SERVER(server))
         return;
@@ -295,7 +297,7 @@ sig_server_connected (PSYC_SERVER_REC *server)
 static void
 sig_server_disconnected (PSYC_SERVER_REC *server)
 {
-    LOG_DEBUG(">> psyc_server:sig_server_disconnected()\n");
+    LOG_INFO(">> psyc_server:sig_server_disconnected()\n");
 
     if (!server || !IS_PSYC_SERVER(server))
         return;
@@ -306,7 +308,7 @@ sig_server_disconnected (PSYC_SERVER_REC *server)
 static void
 sig_server_quit (PSYC_SERVER_REC *server, const char *msg)
 {
-    LOG_DEBUG(">> psyc_server:sig_server_quit()\n");
+    LOG_INFO(">> psyc_server:sig_server_quit()\n");
 
     if (!server || !IS_PSYC_SERVER(server))
         return;
@@ -317,7 +319,7 @@ sig_server_quit (PSYC_SERVER_REC *server, const char *msg)
 static void
 sig_server_connect_copy (SERVER_CONNECT_REC **dest, PSYC_SERVER_CONNECT_REC *src)
 {
-    LOG_DEBUG(">> psyc_server:sig_server_connect_copy()\n");
+    LOG_INFO(">> psyc_server:sig_server_connect_copy()\n");
 
     PSYC_SERVER_CONNECT_REC *rec;
 

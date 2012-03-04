@@ -6,7 +6,7 @@ set(VERSION_PATCH 0)
 set(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
 IF(NOT CMAKE_BUILD_TYPE)
-    SET(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING
+    set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING
         "Choose the type of build, options are: None Debug Release RelWithDebInfo."
 	FORCE)
 ENDIF()
@@ -15,14 +15,14 @@ INCLUDE(FindPkgConfig)
 
 pkg_check_modules(GLIB2 glib-2.0 REQUIRED)
 
-set(CMAKE_C_FLAGS " -Wall" CACHE STRING
+set(CMAKE_C_FLAGS "-Wall" CACHE STRING
     "Common C flags")
 set(CMAKE_C_FLAGS_DEBUG "-ggdb -O0 -DDEBUG" CACHE STRING
-    "C flags for debug build")
+    "C flags for debug build" FORCE)
 set(CMAKE_C_FLAGS_RELWITHDEBINFO "-ggdb -O2" CACHE STRING
-    "C flags for release with debug info")
+    "C flags for release with debug info" FORCE)
 set(CMAKE_C_FLAGS_RELEASE "-O2" CACHE STRING
-    "C flags for release")
+    "C flags for release" FORCE)
 
 set(EXECUTABLE_OUTPUT_PATH "${CMAKE_SOURCE_DIR}/bin")
 set(LIBRARY_OUTPUT_PATH "${CMAKE_SOURCE_DIR}/lib")

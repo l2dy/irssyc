@@ -41,7 +41,7 @@ PSYC_CHANNEL_REC *
 psyc_channel_create (PSYC_SERVER_REC *server, const char *name,
                      const char *visible_name, int automatic)
 {
-    LOG_DEBUG(">> psyc_channel_create(%s, %s, %d)\n", name, visible_name, automatic);
+    LOG_INFO(">> psyc_channel_create(%s, %s, %d)\n", name, visible_name, automatic);
 
     PSYC_CHANNEL_REC *rec;
     g_return_val_if_fail(server == NULL || IS_PSYC_SERVER(server), NULL);
@@ -62,15 +62,16 @@ psyc_channel_create (PSYC_SERVER_REC *server, const char *name,
 }
 
 void
-psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet *p,
-                      uint8_t state_reset, uint8_t ownsrc, uint8_t ownctx,
-                      PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
-                      const char *srcuni, size_t srcunilen,
-                      const char *srcnick, size_t srcnicklen,
-                      const char *method, size_t methodlen,
-                      const char *data, size_t datalen)
+psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel,
+		      Packet *p, uint8_t state_reset,
+		      PsycUniform *src, uint8_t ownsrc,
+		      const char *srcuni, size_t srcunilen,
+		      const char *srcnick, size_t srcnicklen,
+		      PsycMethod mc, PsycMethod mc_family, unsigned int mc_flag,
+		      const char *method, size_t methodlen,
+		      const char *data, size_t datalen)
 {
-    LOG_DEBUG(">> psyc_channel_receive(%u)\n", mc);
+    LOG_INFO(">> psyc_channel_receive(%u)\n", mc);
 
     int for_me = 0;
     char *color, *mode, *msg = data, *msg1 = NULL, *msg2 = NULL, *value;
@@ -220,7 +221,7 @@ psyc_channel_receive (PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel, Packet
 void
 psyc_channel_join (PSYC_SERVER_REC *server, const char *uni, int automatic)
 {
-    LOG_DEBUG(">> psyc_channel_join(%s, %d)\n", uni, automatic);
+    LOG_INFO(">> psyc_channel_join(%s, %d)\n", uni, automatic);
 
     psyc_client_enter(server->client, uni, strlen(uni));
 }
@@ -257,7 +258,7 @@ cmd_share (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 static void
 cmd_member (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_member()\n");
+    LOG_INFO(">> cmd_member()\n");
 
     g_return_if_fail(data != NULL);
     CMD_PSYC_SERVER(server);
@@ -305,7 +306,7 @@ void
 psyc_channel_send_message (PSYC_SERVER_REC *server, const char *target,
                            const char *msg, int target_type)
 {
-    LOG_DEBUG(">> psyc_channel_send_message(%s, %s, %d)\n", target, msg, target_type);
+    LOG_INFO(">> psyc_channel_send_message(%s, %s, %d)\n", target, msg, target_type);
 
     psyc_client_message(server->client, target, strlen(target), msg, strlen(msg));
 }
@@ -373,7 +374,7 @@ static PsycRC
 state_list_var (struct srvchan *sc, Modifier *mod, PsycOperator oper,
                 char *name, size_t namelen, char *value, size_t valuelen)
 {
-    LOG_DEBUG(">> state_list_var(%.*s, %.*s)\n",
+    LOG_INFO(">> state_list_var(%.*s, %.*s)\n",
               (int)namelen, name, (int)valuelen, value);
 
     printformat_channel(sc->server, sc->channel, MSGLEVEL_CLIENTCRAP,
@@ -385,7 +386,7 @@ state_list_var (struct srvchan *sc, Modifier *mod, PsycOperator oper,
 static void
 cmd_state_list (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_state_list()\n");
+    LOG_INFO(">> cmd_state_list()\n");
 
     printformat_channel(server, channel, MSGLEVEL_CLIENTCRAP,
                         PSYCTXT_STATE_LIST_HEADER);
@@ -411,7 +412,7 @@ cmd_state_list (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *cha
 static void
 cmd_state (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_state()\n");
+    LOG_INFO(">> cmd_state()\n");
 
     g_return_if_fail(data != NULL);
     CMD_PSYC_SERVER(server);
@@ -428,7 +429,7 @@ cmd_state (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 static void
 cmd_state_get (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_state_get(%s)\n", data);
+    LOG_INFO(">> cmd_state_get(%s)\n", data);
 
     void *free_arg;
     char *name;
@@ -463,7 +464,7 @@ cmd_state_get (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *chan
 static void
 cmd_state_set (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_state_set(%s)\n", data);
+    LOG_INFO(">> cmd_state_set(%s)\n", data);
 
     void *free_arg;
     char *name, *value;
@@ -502,7 +503,7 @@ cmd_state_set (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *chan
 static void
 cmd_state_reset (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_state_reset(%s)\n", data);
+    LOG_INFO(">> cmd_state_reset(%s)\n", data);
 
     char *ctx = NULL;
     size_t ctxlen = 0;
@@ -520,7 +521,7 @@ cmd_state_reset (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *ch
 static void
 cmd_state_resync (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_state_resync(%s)\n", data);
+    LOG_INFO(">> cmd_state_resync(%s)\n", data);
 
     char *ctx = NULL;
     size_t ctxlen = 0;

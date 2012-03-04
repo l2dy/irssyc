@@ -47,7 +47,7 @@ psyc_command_query_create (const char *server_tag, const char *uni, int automati
 static void
 cmd_psyc (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_psyc()\n");
+    LOG_INFO(">> cmd_psyc()\n");
 
     g_return_if_fail(data != NULL);
     CMD_PSYC_SERVER(server);
@@ -59,7 +59,7 @@ cmd_psyc (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 static void
 cmd_alias (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_alias()\n");
+    LOG_INFO(">> cmd_alias()\n");
 
     g_return_if_fail(data != NULL);
     CMD_PSYC_SERVER(server);
@@ -142,8 +142,7 @@ cmd_nick (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
     if (!cmd_get_params(data, &free_arg, 1, &nick))
         return;
 
-    psyc_client_alias_add(server->client, nick, strlen(nick),
-                          PSYC_S2ARG(server->client->uni.full));
+    psyc_client_alias_add(server->client, nick, strlen(nick), NULL, 0);
 
     cmd_params_free(free_arg);
 }
@@ -175,7 +174,7 @@ cmd_hello (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 static void
 cmd_friend (const char *data, PSYC_SERVER_REC *server, PSYC_CHANNEL_REC *channel)
 {
-    LOG_DEBUG(">> cmd_friend()\n");
+    LOG_INFO(">> cmd_friend()\n");
 
     g_return_if_fail(data != NULL);
     CMD_PSYC_SERVER(server);
