@@ -26,7 +26,6 @@
 #include <core/servers-setup.h>
 
 #include <psyc/client.h>
-#include <psyc/client/commands.h>
 
 /* returns a PSYC_SERVER_REC if it's a PSYC server, or NULL otherwise */
 #define PSYC_SERVER(server)                                             \

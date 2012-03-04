@@ -30,7 +30,6 @@
 #include "psyc-formats.h"
 
 #include <psyc/client.h>
-#include <psyc/client/commands.h>
 
 // QUERY
 QUERY_REC *

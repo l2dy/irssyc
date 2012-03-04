@@ -30,7 +30,6 @@
 #include <fe-common/core/fe-messages.h>
 
 #include <psyc/client.h>
-#include <psyc/client/commands.h>
 
 #include "psyc-servers.h"
 #include "psyc-channels.h"
