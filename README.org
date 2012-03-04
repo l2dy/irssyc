@@ -54,5 +54,15 @@ Create a file ~/.irssi/startup like this:
 
 When you start irssi again, it should link to your psycd identity.
 
-To avoid the debug messages, send them to a file:
+** Development
+
+Enable debug messages:
+: /set psyc_debug on
+
+Set log level (requires restart):
+: /set psyc_log_level INFO
+
+Available log levels: DEBUG, INFO, WARNING, ERROR, NONE
+
+Redirect debug messages to a file:
 : irssi 2>irssi.log
