@@ -141,15 +141,18 @@ alias_add (PSYC_SERVER_REC *server, uint8_t own,
 static void
 alias_remove (PSYC_SERVER_REC *server, uint8_t own,
               const char *uni, size_t unilen,
-              const char *nick, size_t nicklen,
-	      const char *newnick, size_t newnicklen)
+              const char *nick, size_t nicklen)
 {
     LOG_INFO(">> psyc_server:alias_remove(%.*s, %.*s, %d)\n",
               (int)unilen, uni, (int)nicklen, nick, own);
 
+    PsycUniform u;
+    psyc_uniform_parse(&u, uni, unilen);
+    const char *newnick = psyc_client_context_name(server->client, &u, NULL);
+
     if (own) {
         g_free(server->nick);
-        server->nick = g_strdup(uni);
+        server->nick = g_strdup(newnick);
         signal_emit("server nick changed", 1, server);
     } else {
         /// @todo change nick in all channels
@@ -198,10 +201,21 @@ receive (PSYC_SERVER_REC *server, Packet *p, uint8_t state_reset,
     if (!server || !IS_PSYC_SERVER(server))
         return;
 
-    if (ctxnamelen > 0) {
+    if (ctxunilen > 0) {
         PSYC_CHANNEL_REC *channel = psyc_channel_find(server, ctxuni);
-        if (!channel)
+        if (!channel) {
+	    uint8_t freectx = 0;
+	    if (!ctxnamelen) {
+		ctxname = psyc_client_context_name(server->client, ctx,
+						   &ctxnamelen);
+		freectx = 1;
+	    }
+
             channel = psyc_channel_create(server, ctxuni, ctxname, 0);
+
+	    if (freectx)
+		mem_free(ctxname);
+	}
 
         psyc_channel_receive(server, channel, p, state_reset,
                              src, ownsrc, srcuni, srcunilen, srcnick, srcnicklen,
