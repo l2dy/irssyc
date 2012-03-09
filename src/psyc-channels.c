@@ -373,8 +373,9 @@ static PsycRC
 state_list_var (struct srvchan *sc, Modifier *mod, PsycOperator oper,
                 char *name, size_t namelen, char *value, size_t valuelen)
 {
-    LOG_INFO(">> state_list_var(%.*s, %.*s)\n",
-              (int)namelen, name, (int)valuelen, value);
+    //LOG_INFO(">> state_list_var(%.*s, %.*s)\n",
+    //          (int)namelen, name, (int)valuelen, value);
+    LOG_INFO(">> state_list_var(%.*s, %ld)\n", (int)namelen, name, valuelen);
 
     printformat_channel(sc->server, sc->channel, MSGLEVEL_CLIENTCRAP,
                         PSYCTXT_STATE_LIST_VAR, name, value);
