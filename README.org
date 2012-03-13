@@ -38,7 +38,6 @@ Run this command to find out your own node id:
 Extract the id and replace it below where it says <insert your node id>.
 
 Start irssi and type the following commands:
-: /network add psycd
 : /network add -nick psyc://<insert your node id>:g/ psycd
 : /server add -auto -network psycd localhost 4404
 : /quit
