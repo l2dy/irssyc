@@ -2,7 +2,7 @@
 
 * Prerequisites
 
-: apt-get install libglib2.0-dev irssi-dev
+: sudo apt-get install libglib2.0-dev irssi-dev
 
 or equivalent packages on your respective Unix distribution.
 
