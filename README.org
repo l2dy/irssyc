@@ -65,3 +65,7 @@ Available log levels: DEBUG, INFO, WARNING, ERROR, NONE
 
 Redirect debug messages to a file:
 : irssi 2>irssi.log
+
+* Bug Reporting
+
+https://projects.tgbit.net/projects/psyc
